@@ -1,0 +1,564 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Flood-Resilient House Builder</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{width:100%;height:100%;overflow:hidden;font-family:'Segoe UI',sans-serif;background:#1a1a2e}
+#root{width:100%;height:100%}
+::-webkit-scrollbar{width:4px}::-webkit-scrollbar-track{background:#f0f0f0}::-webkit-scrollbar-thumb{background:#aaa;border-radius:2px}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const {useState,useEffect,useRef}=React;
+
+const LEVELS=[
+  {id:1,name:"Knee-Level Flood",color:"#29b6f6",emoji:"💧",target:20,floodH:0.35,desc:"Low risk — basic elevation needed."},
+  {id:2,name:"Waist-Level Flood",color:"#0288d1",emoji:"🌊",target:30,floodH:1.0,desc:"Moderate risk — improved materials needed."},
+  {id:3,name:"Chest-Level Flood",color:"#01579b",emoji:"🌊🌊",target:40,floodH:2.0,desc:"High risk — advanced solutions needed!"},
+];
+const MATS={
+  foundation:{label:"Foundation",emoji:"🪨",color:"#5d4037",light:"#efebe9",opts:[
+    {id:"f1",name:"Concrete Foundation",cost:4,hearts:6,emoji:"🏗️",hex:0x78909c},
+    {id:"f2",name:"Stone & Mud Plinth",cost:2,hearts:4,emoji:"🪨",hex:0x8d6e63},
+    {id:"f3",name:"Raised Mud Plinth",cost:1,hearts:2,emoji:"🌿",hex:0xbcaaa4},
+  ]},
+  wall:{label:"Walls",emoji:"🧱",color:"#c62828",light:"#fbe9e7",opts:[
+    {id:"w1",name:"Brick & Cement",cost:4,hearts:6,emoji:"🧱",hex:0xe57373},
+    {id:"w2",name:"Bamboo & Mud",cost:2,hearts:4,emoji:"🌾",hex:0xdce775},
+    {id:"w3",name:"Mud Walls",cost:1,hearts:2,emoji:"🟫",hex:0xa1887f},
+  ]},
+  roof:{label:"Roof",emoji:"🏠",color:"#4527a0",light:"#ede7f6",opts:[
+    {id:"r1",name:"Concrete Roof",cost:4,hearts:5,emoji:"🏛️",hex:0x546e7a},
+    {id:"r2",name:"Metal Sheets",cost:2,hearts:4,emoji:"⚙️",hex:0x90a4ae},
+    {id:"r3",name:"Thatch Roof",cost:1,hearts:2,emoji:"🌿",hex:0xcddc39},
+  ]},
+};
+const ACE=[
+  {id:"a1",name:"Flood Barrier",cost:3,hearts:5,emoji:"🛡️"},
+  {id:"a2",name:"Drainage",cost:2,hearts:3,emoji:"💧"},
+  {id:"a3",name:"Sandbags",cost:1,hearts:2,emoji:"🪣"},
+];
+const COMPAT={
+  foundation:{f1:['w1','w2','w3'],f2:['w1','w2','w3'],f3:['w2','w3']},
+  wall:{w1:['r1','r2','r3'],w2:['r2','r3'],w3:['r2','r3']},
+};
+const IMSG={
+  f3_w1:"Raised Mud Plinth can't bear Brick & Cement walls",
+  w2_r1:"Bamboo & Mud walls can't carry a Concrete roof",
+  w3_r1:"Mud Walls can't support a Concrete roof",
+};
+function iMsg(cat,optId,fMat,wMat){
+  if(cat==='wall'&&fMat){const a=COMPAT.foundation[fMat.id];if(a&&!a.includes(optId))return IMSG[`${fMat.id}_${optId}`]||"Incompatible with foundation";}
+  if(cat==='roof'&&wMat){const a=COMPAT.wall[wMat.id];if(a&&!a.includes(optId))return IMSG[`${wMat.id}_${optId}`]||"Incompatible with walls";}
+  return null;
+}
+const BUDGET=20,FH=0.35,WH=1.0,PEAK=0.65,MAX_R=5;
+
+function makeScene(canvas,W,H){
+  const renderer=new THREE.WebGLRenderer({canvas,antialias:true});
+  renderer.setSize(W,H,false);renderer.setPixelRatio(Math.min(devicePixelRatio,2));renderer.shadowMap.enabled=true;
+  const scene=new THREE.Scene();scene.background=new THREE.Color(0x87ceeb);scene.fog=new THREE.FogExp2(0x87ceeb,0.025);
+  const cam=new THREE.PerspectiveCamera(40,W/H,0.1,100);
+  const sph={th:Math.PI*0.28,ph:Math.PI*0.27,r:10};
+  const syncCam=()=>{cam.position.set(sph.r*Math.sin(sph.ph)*Math.sin(sph.th),sph.r*Math.cos(sph.ph),sph.r*Math.sin(sph.ph)*Math.cos(sph.th));cam.lookAt(0,1.2,0);};
+  syncCam();
+  scene.add(new THREE.AmbientLight(0xffffff,0.78));
+  const sun=new THREE.DirectionalLight(0xfffbe0,1.05);sun.position.set(8,12,6);sun.castShadow=true;scene.add(sun);
+  const gnd=new THREE.Mesh(new THREE.PlaneGeometry(60,60),new THREE.MeshLambertMaterial({color:0x6ab04c}));
+  gnd.rotation.x=-Math.PI/2;gnd.receiveShadow=true;scene.add(gnd);
+  const grid=new THREE.GridHelper(10,10,0x33691e,0x558b2f);grid.position.y=0.003;scene.add(grid);
+  const bank=new THREE.Mesh(new THREE.PlaneGeometry(50,4),new THREE.MeshLambertMaterial({color:0xd4a84b}));
+  bank.rotation.x=-Math.PI/2;bank.position.set(0,0.01,-7);scene.add(bank);
+  const river=new THREE.Mesh(new THREE.PlaneGeometry(50,8),new THREE.MeshLambertMaterial({color:0x1e88e5,transparent:true,opacity:0.88}));
+  river.rotation.x=-Math.PI/2;river.position.set(0,0.02,-12);scene.add(river);
+  const ripples=Array.from({length:7},(_,i)=>{
+    const m=new THREE.Mesh(new THREE.PlaneGeometry(0.055,8),new THREE.MeshBasicMaterial({color:0xffffff,transparent:true,opacity:0.17}));
+    m.rotation.x=-Math.PI/2;m.position.set(-9+i*3,0.025,-12);scene.add(m);return m;
+  });
+  [[-4.5,3.2],[4.8,2.8],[-5.8,0.2],[5.6,-0.8],[-3.2,-2.5],[3.8,-2.8],[-6.5,-4],[6.2,4.5],[-2,4.5],[2.5,-4.8]].forEach(([x,z])=>{
+    const t=new THREE.Mesh(new THREE.CylinderGeometry(0.08,0.14,1.0,8),new THREE.MeshLambertMaterial({color:0x5d4037}));
+    t.position.set(x,0.5,z);scene.add(t);
+    [[0.82,0.58,0,0,0x2e7d32],[0.56,0.65,0.28,0.12,0x388e3c],[0.5,0.62,-0.24,0.28,0x43a047]].forEach(([r,sy,dx,dz,col],j)=>{
+      const c=new THREE.Mesh(new THREE.SphereGeometry(r,9,7),new THREE.MeshLambertMaterial({color:col}));
+      c.scale.set(1,sy,1);c.position.set(x+dx,[1.38,1.68,1.62][j],z+dz);scene.add(c);
+    });
+  });
+  [[-1.5,3.8],[2.2,4.2],[-3.8,-3.4],[4.5,-3.6],[0.5,5],[-4.5,-1],[5,-1.5]].forEach(([x,z])=>{
+    const b=new THREE.Mesh(new THREE.SphereGeometry(0.3,7,5),new THREE.MeshLambertMaterial({color:0x558b2f}));
+    b.scale.y=0.65;b.position.set(x,0.19,z);scene.add(b);
+  });
+  const fp=new THREE.Mesh(new THREE.PlaneGeometry(1,1),new THREE.MeshBasicMaterial({color:0x1565c0,transparent:true,opacity:0.1,side:THREE.DoubleSide}));
+  fp.rotation.x=-Math.PI/2;fp.position.y=0.005;scene.add(fp);
+  const water=new THREE.Mesh(new THREE.BoxGeometry(22,1,18),new THREE.MeshLambertMaterial({color:0x1565c0,transparent:true,opacity:0.52}));
+  water.position.y=-10;scene.add(water);
+  const wSurf=new THREE.Mesh(new THREE.PlaneGeometry(22,18),new THREE.MeshBasicMaterial({color:0x42a5f5,transparent:true,opacity:0.38}));
+  wSurf.rotation.x=-Math.PI/2;wSurf.position.y=-10;scene.add(wSurf);
+  return {renderer,scene,cam,sph,syncCam,water,wSurf,ripples,fp,meshes:[],autoRot:false,floodY:0,targetH:0,flooding:false,onDone:null};
+}
+
+function buildHouse(ts,{fCount,wCount,rCount,fMat,wMat,rMat},stacked){
+  ts.meshes.forEach(m=>{ts.scene.remove(m);m.geometry&&m.geometry.dispose();m.material&&m.material.dispose();});
+  ts.meshes=[];
+  const fHex=fMat?fMat.hex:0xbcaaa4,wHex=wMat?wMat.hex:0xa1887f,rHex=rMat?rMat.hex:0xcddc39;
+  const add=(geo,col,x,y,z)=>{const m=new THREE.Mesh(geo,new THREE.MeshLambertMaterial({color:col}));m.position.set(x,y,z);m.castShadow=m.receiveShadow=true;ts.scene.add(m);ts.meshes.push(m);};
+  const ghost=(geo,x,y,z)=>{
+    const m=new THREE.Mesh(geo.clone(),new THREE.MeshLambertMaterial({color:0x1976d2,transparent:true,opacity:0.1}));
+    m.position.set(x,y,z);ts.scene.add(m);ts.meshes.push(m);
+    const e=new THREE.LineSegments(new THREE.EdgesGeometry(geo),new THREE.LineBasicMaterial({color:0x1976d2,transparent:true,opacity:0.5}));
+    e.position.set(x,y,z);ts.scene.add(e);ts.meshes.push(e);
+  };
+  const mkRoof=(ry,hw,cx,isGhost)=>{
+    const hd=0.6,v=new Float32Array([-hw,ry,hd,hw,ry,hd,0,ry+PEAK,hd,-hw,ry,-hd,hw,ry,-hd,0,ry+PEAK,-hd]);
+    const ix=[0,1,2,3,5,4,0,3,5,0,5,2,1,2,5,1,5,4,0,1,3,1,4,3];
+    const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.BufferAttribute(v,3));g.setIndex(ix);g.computeVertexNormals();
+    const m=new THREE.Mesh(g,new THREE.MeshLambertMaterial({color:isGhost?0x1976d2:rHex,transparent:isGhost,opacity:isGhost?0.12:1,side:THREE.DoubleSide}));
+    m.position.x=cx;if(!isGhost)m.castShadow=true;ts.scene.add(m);ts.meshes.push(m);
+  };
+  ts.fp.scale.set(fCount===0?4:1,1,fCount===0?1.4:1);ts.fp.material.opacity=fCount===0?0.1:0;
+  if(fCount===0)return;
+  if(!stacked){
+    const cx=i=>-(fCount-1)*0.5+i;
+    for(let i=0;i<fCount;i++)add(new THREE.BoxGeometry(0.95,FH,0.95),fHex,cx(i),FH/2,0);
+    for(let i=0;i<fCount;i++){
+      if(i<wCount){add(new THREE.BoxGeometry(0.95,WH,0.95),wHex,cx(i),FH+WH/2,0);add(new THREE.BoxGeometry(0.21,0.17,0.04),0x81d4fa,cx(i),FH+WH*0.65,0.49);if(i===0)add(new THREE.BoxGeometry(0.24,0.44,0.04),0x5d4037,cx(i),FH+0.22,0.49);}
+      else ghost(new THREE.BoxGeometry(0.95,WH,0.95),cx(i),FH+WH/2,0);
+    }
+    for(let i=0;i<fCount;i++){if(i<rCount)mkRoof(FH+WH,0.54,cx(i),false);else if(i<wCount)mkRoof(FH+WH,0.54,cx(i),true);}
+  }else{
+    add(new THREE.BoxGeometry(1.4,FH,1.1),fHex,0,FH/2,0);
+    const sw=1.3;
+    for(let fl=0;fl<fCount;fl++){
+      const base=FH+fl*WH;
+      if(fl>0)add(new THREE.BoxGeometry(sw,0.07,1.0),fHex,0,base,0);
+      if(fl<wCount){add(new THREE.BoxGeometry(sw,WH,1.0),wHex,0,base+WH/2,0);add(new THREE.BoxGeometry(0.21,0.17,0.04),0x81d4fa,0.2,base+WH*0.65,0.53);add(new THREE.BoxGeometry(0.21,0.17,0.04),0x81d4fa,-0.2,base+WH*0.65,0.53);if(fl===0)add(new THREE.BoxGeometry(0.25,0.44,0.04),0x5d4037,0,FH+0.22,0.53);}
+      else ghost(new THREE.BoxGeometry(sw,WH,1.0),0,base+WH/2,0);
+    }
+    const topY=FH+fCount*WH;
+    if(rCount>0)mkRoof(topY,sw/2+0.06,0,false);else if(wCount>0)mkRoof(topY,sw/2+0.06,0,true);
+  }
+}
+
+function App(){
+  const [screen,setScreen]=useState("intro");
+  const [lvlIdx,setLvlIdx]=useState(0);
+  const [build,setBuild]=useState({fCount:0,wCount:0,rCount:0,fMat:null,wMat:null,rMat:null});
+  const [stacked,setStacked]=useState(false);
+  const [aces,setAces]=useState([]);
+  const [results,setResults]=useState([]);
+  const [simDone,setSimDone]=useState(false);
+  const [dragOver,setDragOver]=useState(false);
+  const [autoRot,setAutoRot]=useState(false);
+  const [toast,setToast]=useState(null);
+  const canvasRef=useRef(null);
+  const wrapRef=useRef(null);
+  const tsRef=useRef(null);
+  const rafRef=useRef(null);
+  const orb=useRef({on:false,lx:0,ly:0});
+  const {fCount,wCount,rCount,fMat,wMat,rMat}=build;
+  const lvl=LEVELS[lvlIdx];
+  const isGame=["game","simulating","levelresult"].includes(screen);
+  const aceCost=aces.reduce((s,a)=>s+a.cost,0);
+  const aceHrts=aces.reduce((s,a)=>s+a.hearts,0);
+  const rMult=stacked?Math.min(rCount,1):rCount;
+  const totalCost=(fMat?fMat.cost:0)*fCount+(wMat?wMat.cost:0)*wCount+(rMat?rMat.cost:0)*rMult+aceCost;
+  const coinsLeft=BUDGET-totalCost;
+  const hearts=(fMat?fMat.hearts:0)*fCount+(wMat?wMat.hearts:0)*wCount+(rMat?rMat.hearts:0)*rMult+aceHrts;
+  const rTarget=stacked?1:fCount;
+  const isComplete=fCount>0&&wCount===fCount&&rCount===rTarget;
+  const safeFloors=stacked?Array.from({length:fCount},(_,fl)=>FH+fl*WH).filter(b=>b>=lvl.floodH).length:(FH>=lvl.floodH?wCount:0);
+  const wallSafe=safeFloors>0;
+  const passed=hearts>=lvl.target&&wallSafe;
+  const show=msg=>{setToast(msg);setTimeout(()=>setToast(null),3200);};
+
+  const placeBlock=(cat,opt)=>{
+    if(cat==='wall'){if(fCount===0){show("🪨 Place a foundation block first!");return;}if(wCount>=fCount){show("🪨 Add more foundation before walls!");return;}}
+    if(cat==='roof'){if(wCount===0){show("🧱 Place wall blocks first!");return;}const maxR=stacked?1:wCount;if(rCount>=maxR){show(stacked?"✅ One roof covers stacked building!":"🧱 Add more wall blocks first!");return;}}
+    if(cat==='foundation'&&fCount>=MAX_R){show("Maximum 5 rooms!");return;}
+    const cm=iMsg(cat,opt.id,fMat,wMat);if(cm){show("🚫 "+cm);return;}
+    const cur=cat==='foundation'?fMat:cat==='wall'?wMat:rMat;
+    if(cur&&cur.id!==opt.id){
+      if(cat==='foundation')setBuild({fCount:0,wCount:0,rCount:0,fMat:null,wMat:null,rMat:null});
+      else if(cat==='wall')setBuild(b=>({...b,wCount:0,wMat:null,rCount:0,rMat:null}));
+      else setBuild(b=>({...b,rCount:0,rMat:null}));
+      show(`⚠️ ${MATS[cat].label} changed — drop again to place`);return;
+    }
+    if(totalCost+opt.cost>BUDGET){show(`🪙 Need ${opt.cost} coins, have ${coinsLeft}`);return;}
+    setBuild(b=>{
+      if(cat==='foundation')return{...b,fMat:opt,fCount:b.fCount+1};
+      if(cat==='wall')return{...b,wMat:opt,wCount:b.wCount+1};
+      return{...b,rMat:opt,rCount:b.rCount+1};
+    });
+  };
+  const removeBlock=(cat)=>{
+    if(cat==='foundation'){if(wCount>0){show("Remove wall blocks first!");return;}setBuild(b=>({...b,fCount:Math.max(0,b.fCount-1),fMat:b.fCount<=1?null:b.fMat}));}
+    else if(cat==='wall'){if(rCount>=wCount){show("Remove roof block first!");return;}setBuild(b=>({...b,wCount:Math.max(0,b.wCount-1),wMat:b.wCount<=1?null:b.wMat}));}
+    else setBuild(b=>({...b,rCount:Math.max(0,b.rCount-1),rMat:b.rCount<=1?null:b.rMat}));
+  };
+  const switchLayout=s=>{setStacked(s);setBuild({fCount:0,wCount:0,rCount:0,fMat:null,wMat:null,rMat:null});setAces([]);};
+
+  useEffect(()=>{
+    if(!isGame||!canvasRef.current||tsRef.current)return;
+    const wrap=wrapRef.current;
+    const W=wrap?wrap.clientWidth:600,H=wrap?wrap.clientHeight:500;
+    const ts=makeScene(canvasRef.current,W,H);tsRef.current=ts;buildHouse(ts,build,stacked);
+    const c=canvasRef.current;
+    const md=e=>{orb.current={on:true,lx:e.clientX,ly:e.clientY};};
+    const mm=e=>{if(!orb.current.on)return;const dx=e.clientX-orb.current.lx,dy=e.clientY-orb.current.ly;ts.sph.th-=dx*0.007;ts.sph.ph=Math.max(0.08,Math.min(1.45,ts.sph.ph+dy*0.007));ts.syncCam();orb.current={on:true,lx:e.clientX,ly:e.clientY};};
+    const mu=()=>{orb.current.on=false;};
+    const tt=e=>{if(e.touches.length===1)md({clientX:e.touches[0].clientX,clientY:e.touches[0].clientY});};
+    const tm=e=>{if(e.touches.length===1)mm({clientX:e.touches[0].clientX,clientY:e.touches[0].clientY});};
+    c.addEventListener('mousedown',md);window.addEventListener('mousemove',mm);window.addEventListener('mouseup',mu);
+    c.addEventListener('touchstart',tt,{passive:true});window.addEventListener('touchmove',tm,{passive:true});window.addEventListener('touchend',mu);
+    const animate=()=>{
+      rafRef.current=requestAnimationFrame(animate);
+      if(ts.autoRot){ts.sph.th+=0.005;ts.syncCam();}
+      ts.ripples.forEach(r=>{r.position.x+=0.035;if(r.position.x>9)r.position.x=-9;});
+      if(ts.flooding){ts.floodY=Math.min(ts.floodY+0.011,ts.targetH);ts.water.scale.y=Math.max(0.001,ts.floodY);ts.water.position.y=ts.floodY/2;ts.wSurf.position.y=ts.floodY+0.01;ts.ripples.forEach(r=>r.position.y=ts.floodY+0.01);if(ts.floodY>=ts.targetH){ts.flooding=false;if(ts.onDone)ts.onDone();}}
+      ts.renderer.render(ts.scene,ts.cam);
+    };
+    animate();
+    return()=>{cancelAnimationFrame(rafRef.current);c.removeEventListener('mousedown',md);window.removeEventListener('mousemove',mm);window.removeEventListener('mouseup',mu);c.removeEventListener('touchstart',tt);window.removeEventListener('touchmove',tm);window.removeEventListener('touchend',mu);ts.renderer.dispose();tsRef.current=null;};
+  },[isGame]);
+  useEffect(()=>{if(tsRef.current)tsRef.current.autoRot=autoRot;},[autoRot]);
+  useEffect(()=>{if(tsRef.current&&isGame)buildHouse(tsRef.current,build,stacked);},[build,stacked,isGame]);
+  useEffect(()=>{
+    if(screen==="game"&&tsRef.current){const ts=tsRef.current;ts.flooding=false;ts.floodY=0;ts.targetH=0;ts.water.position.y=-10;ts.water.scale.y=1;ts.wSurf.position.y=-10;ts.ripples.forEach(r=>r.position.y=0.025);}
+  },[screen]);
+
+  const confirmResult=()=>{
+    setResults(p=>[...p,{lvlIdx,hearts,target:lvl.target,passed,fCount,stacked,wallSafe,safeFloors,
+      fMat:fMat?{id:fMat.id,name:fMat.name,cost:fMat.cost,hearts:fMat.hearts,emoji:fMat.emoji}:null,
+      wMat:wMat?{id:wMat.id,name:wMat.name,cost:wMat.cost,hearts:wMat.hearts,emoji:wMat.emoji}:null,
+      rMat:rMat?{id:rMat.id,name:rMat.name,cost:rMat.cost,hearts:rMat.hearts,emoji:rMat.emoji}:null,
+      wCount,rCount,coinsSpent:totalCost,coinsLeft,aceNames:aces.map(a=>a.name),layout:stacked?"Stacked":"Side by Side"}]);
+    setScreen("levelresult");
+  };
+  const handleDrop=e=>{e.preventDefault();setDragOver(false);try{const{cat,optId}=JSON.parse(e.dataTransfer.getData('text/plain'));const opt=MATS[cat]&&MATS[cat].opts.find(o=>o.id===optId);if(opt)placeBlock(cat,opt);}catch(err){}};
+  const handleBuild=()=>{setSimDone(false);setScreen("simulating");setTimeout(()=>{if(!tsRef.current)return;const ts=tsRef.current;ts.floodY=0;ts.targetH=lvl.floodH;ts.flooding=true;ts.ripples.forEach(r=>r.position.y=0.025);ts.onDone=()=>setSimDone(true);},300);};
+  const goNext=()=>{if(lvlIdx<2){setLvlIdx(p=>p+1);setBuild({fCount:0,wCount:0,rCount:0,fMat:null,wMat:null,rMat:null});setAces([]);setScreen("game");setSimDone(false);setAutoRot(false);}else setScreen("complete");};
+  const retry=()=>{setBuild({fCount:0,wCount:0,rCount:0,fMat:null,wMat:null,rMat:null});setAces([]);setScreen("game");setSimDone(false);};
+  const restart=()=>{setLvlIdx(0);setBuild({fCount:0,wCount:0,rCount:0,fMat:null,wMat:null,rMat:null});setAces([]);setResults([]);setScreen("intro");setAutoRot(false);setStacked(false);};
+
+  const getCardState=(cat,opt)=>{
+    const cur=cat==='foundation'?fMat:cat==='wall'?wMat:rMat;
+    const cm=iMsg(cat,opt.id,fMat,wMat);if(cm)return{state:'incompat',msg:cm};
+    if(cur&&cur.id!==opt.id)return{state:'locked',msg:`Change ${MATS[cat].label} (resets layer)`};
+    if(cat==='wall'){if(fCount===0)return{state:'dim',msg:"Place foundation first"};if(wCount>=fCount)return{state:'dim',msg:"Add more foundation first"};}
+    if(cat==='roof'){const maxR=stacked?1:wCount;if(wCount===0)return{state:'dim',msg:"Place walls first"};if(rCount>=maxR)return{state:'dim',msg:stacked?"Roof placed":"Add more wall blocks first"};}
+    if(cat==='foundation'&&fCount>=MAX_R)return{state:'dim',msg:"Max 5 rooms"};
+    if(totalCost+opt.cost>BUDGET)return{state:'dim',msg:"Not enough coins"};
+    return{state:'ok',msg:null};
+  };
+
+  // ── INTRO ─────────────────────────────────────────────────────────────────
+  if(screen==="intro") return (
+    <div style={{width:"100%",height:"100%",background:"linear-gradient(135deg,#0f2027,#203a43,#2c5364)",display:"flex",alignItems:"center",justifyContent:"center",padding:24}}>
+      <div style={{display:"flex",gap:40,alignItems:"center",maxWidth:900,width:"100%"}}>
+        {/* Left: title */}
+        <div style={{flex:1,color:"white",textAlign:"center"}}>
+          <div style={{fontSize:64,marginBottom:12}}>🏠🌊</div>
+          <h1 style={{fontSize:28,fontWeight:"bold",marginBottom:8,lineHeight:1.2}}>Flood-Resilient<br/>House Builder</h1>
+          <p style={{fontSize:13,opacity:0.8,lineHeight:1.7,marginBottom:20,maxWidth:280,margin:"0 auto 20px"}}>
+            Drag material cards onto the 3D grid to build your house. Each drop = 1 room block. Survive 3 rising floods!
+          </p>
+          <p style={{fontSize:11,opacity:0.55,marginBottom:28}}>🖱️ Drag 3D grid to orbit · 🔄 Auto-orbit button</p>
+          <button onClick={()=>setScreen("game")} style={{padding:"14px 48px",borderRadius:30,border:"none",background:"linear-gradient(135deg,#29b6f6,#1565c0)",color:"white",fontSize:17,fontWeight:"bold",cursor:"pointer",boxShadow:"0 6px 20px rgba(41,182,246,0.4)"}}>🚀 Start Game</button>
+        </div>
+        {/* Right: level cards */}
+        <div style={{flex:1,display:"flex",flexDirection:"column",gap:10}}>
+          {LEVELS.map(l=>(
+            <div key={l.id} style={{background:"rgba(255,255,255,0.08)",border:`1px solid ${l.color}55`,borderRadius:14,padding:"14px 16px",display:"flex",alignItems:"center",gap:14,backdropFilter:"blur(8px)"}}>
+              <div style={{background:l.color,borderRadius:10,width:44,height:44,display:"flex",alignItems:"center",justifyContent:"center",fontSize:20,flexShrink:0}}>{l.emoji}</div>
+              <div style={{color:"white"}}>
+                <div style={{fontWeight:"bold",fontSize:14}}>Level {l.id}: {l.name}</div>
+                <div style={{fontSize:11,opacity:0.7,marginTop:3}}>Target: {l.target} ❤️ · Flood depth: {["≈ top of foundation","≈ 1 block high","≈ 2 blocks high"][l.id-1]}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+
+  // ── COMPLETE ──────────────────────────────────────────────────────────────
+  if(screen==="complete"){
+    const wins=results.filter(r=>r.passed).length;
+    return(
+      <div style={{width:"100%",height:"100%",background:"#f0f4f8",display:"flex",flexDirection:"column",overflow:"hidden"}}>
+        {/* Header */}
+        <div style={{background:"linear-gradient(135deg,#1565c0,#1976d2)",padding:"10px 20px",color:"white",display:"flex",alignItems:"center",gap:12,flexShrink:0}}>
+          <span style={{fontSize:24}}>{wins===3?"🏆":wins>=2?"🌟":"📚"}</span>
+          <div style={{flex:1}}><div style={{fontWeight:"bold",fontSize:16}}>Game Complete! — Survived {wins}/3 levels</div></div>
+          <button onClick={restart} style={{padding:"8px 20px",borderRadius:20,border:"none",background:"rgba(255,255,255,0.2)",color:"white",fontWeight:"bold",cursor:"pointer",fontSize:13}}>🏠 Home</button>
+        </div>
+        {/* Body: 2-column */}
+        <div style={{flex:1,display:"flex",gap:0,overflow:"hidden"}}>
+          {/* Left: summary tiles + log */}
+          <div style={{flex:1,overflowY:"auto",padding:"14px 12px"}}>
+            <div style={{display:"flex",gap:8,marginBottom:14}}>
+              {results.map((r,i)=>(
+                <div key={i} style={{flex:1,background:"white",borderRadius:12,padding:"12px 10px",textAlign:"center",boxShadow:"0 2px 8px rgba(0,0,0,0.09)",borderTop:`4px solid ${r.passed?"#4caf50":"#e53935"}`}}>
+                  <div style={{fontSize:18}}>{LEVELS[r.lvlIdx].emoji}</div>
+                  <div style={{fontWeight:"bold",fontSize:12,marginTop:4}}>Level {r.lvlIdx+1}</div>
+                  <div style={{fontSize:11,color:r.passed?"#2e7d32":"#c62828",fontWeight:"bold",marginTop:2}}>{r.passed?"✅ Passed":"❌ Failed"}</div>
+                  <div style={{fontSize:11,color:"#888",marginTop:3}}>❤️ {r.hearts}/{r.target}</div>
+                  <div style={{fontSize:11,color:"#888"}}>🪙 {r.coinsSpent} spent</div>
+                  <div style={{fontSize:11,color:"#888"}}>{r.fCount}rm · {r.layout}</div>
+                </div>
+              ))}
+            </div>
+            {/* Decision Log */}
+            <div style={{background:"white",borderRadius:14,padding:14,boxShadow:"0 2px 8px rgba(0,0,0,0.07)"}}>
+              <div style={{fontWeight:"bold",fontSize:13,color:"#1565c0",marginBottom:12}}>📋 Round-by-Round Decision Log</div>
+              {results.map((r,i)=>{
+                const prev=results[i-1]||null;const changes=[];
+                if(prev){
+                  if((prev.fMat&&prev.fMat.id)!==(r.fMat&&r.fMat.id))changes.push({label:"Foundation",from:prev.fMat?`${prev.fMat.emoji} ${prev.fMat.name}`:"None",to:r.fMat?`${r.fMat.emoji} ${r.fMat.name}`:"None"});
+                  if((prev.wMat&&prev.wMat.id)!==(r.wMat&&r.wMat.id))changes.push({label:"Walls",from:prev.wMat?`${prev.wMat.emoji} ${prev.wMat.name}`:"None",to:r.wMat?`${r.wMat.emoji} ${r.wMat.name}`:"None"});
+                  if((prev.rMat&&prev.rMat.id)!==(r.rMat&&r.rMat.id))changes.push({label:"Roof",from:prev.rMat?`${prev.rMat.emoji} ${prev.rMat.name}`:"None",to:r.rMat?`${r.rMat.emoji} ${r.rMat.name}`:"None"});
+                  if(prev.fCount!==r.fCount)changes.push({label:"Rooms",from:`${prev.fCount}rm`,to:`${r.fCount}rm`});
+                  if(prev.layout!==r.layout)changes.push({label:"Layout",from:prev.layout,to:r.layout});
+                }
+                return(
+                  <div key={i} style={{marginBottom:i<results.length-1?14:0}}>
+                    <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:7}}>
+                      <div style={{width:26,height:26,borderRadius:"50%",background:LEVELS[r.lvlIdx].color,display:"flex",alignItems:"center",justifyContent:"center",color:"white",fontSize:11,fontWeight:"bold",flexShrink:0}}>{i+1}</div>
+                      <div style={{flex:1}}><span style={{fontWeight:"bold",fontSize:12}}>{LEVELS[r.lvlIdx].emoji} {LEVELS[r.lvlIdx].name}</span></div>
+                      <span style={{fontSize:12,fontWeight:"bold",color:r.passed?"#2e7d32":"#c62828"}}>{r.passed?"✅":"❌"} ❤️{r.hearts}/{r.target}</span>
+                    </div>
+                    <div style={{display:"flex",gap:5,marginBottom:6}}>
+                      {[{mat:r.fMat,label:"Found.",cat:"foundation"},{mat:r.wMat,n:r.wCount,label:"Walls",cat:"wall"},{mat:r.rMat,label:"Roof",cat:"roof"}].map(({mat,n,label,cat})=>(
+                        <div key={cat} style={{flex:1,background:MATS[cat].light,border:`1px solid ${MATS[cat].color}44`,borderRadius:8,padding:"6px 5px",textAlign:"center"}}>
+                          <div style={{fontSize:14}}>{mat?mat.emoji:"—"}</div>
+                          <div style={{fontSize:8,fontWeight:"bold",color:MATS[cat].color,marginTop:2}}>{label}</div>
+                          <div style={{fontSize:8,color:"#555",lineHeight:1.3}}>{mat?mat.name.split(" ").slice(0,2).join(" "):"None"}{n&&n>1?` ×${n}`:""}</div>
+                        </div>
+                      ))}
+                    </div>
+                    <div style={{display:"flex",gap:5,flexWrap:"wrap",marginBottom:changes.length?6:0}}>
+                      <span style={{background:"#e3f2fd",borderRadius:6,padding:"2px 7px",fontSize:9,color:"#1565c0",fontWeight:"bold"}}>🏠 {r.fCount}rm</span>
+                      <span style={{background:"#e3f2fd",borderRadius:6,padding:"2px 7px",fontSize:9,color:"#1565c0",fontWeight:"bold"}}>{r.layout}</span>
+                      <span style={{background:"#fff9c4",borderRadius:6,padding:"2px 7px",fontSize:9,color:"#e65100",fontWeight:"bold"}}>🪙{r.coinsSpent}/{BUDGET}</span>
+                      {r.aceNames&&r.aceNames.length>0&&<span style={{background:"#fce4ec",borderRadius:6,padding:"2px 7px",fontSize:9,color:"#c62828",fontWeight:"bold"}}>🃏 {r.aceNames.join(", ")}</span>}
+                      <span style={{background:r.wallSafe?"#e8f5e9":"#fce4ec",borderRadius:6,padding:"2px 7px",fontSize:9,color:r.wallSafe?"#2e7d32":"#c62828",fontWeight:"bold"}}>{r.wallSafe?"🧱 Safe":"🧱 Submerged"}</span>
+                    </div>
+                    {changes.length>0&&(
+                      <div style={{background:"#fff8e1",border:"1px dashed #ffc107",borderRadius:8,padding:"7px 10px"}}>
+                        <div style={{fontSize:9,fontWeight:"bold",color:"#e65100",marginBottom:4}}>🔄 Changes from Round {i}:</div>
+                        {changes.map((c,j)=>(
+                          <div key={j} style={{fontSize:10,color:"#555",marginBottom:2,display:"flex",alignItems:"center",gap:4,flexWrap:"wrap"}}>
+                            <span style={{fontWeight:"bold"}}>{c.label}:</span>
+                            <span style={{background:"#ffcdd2",borderRadius:4,padding:"1px 5px"}}>{c.from}</span>
+                            <span style={{color:"#888"}}>→</span>
+                            <span style={{background:"#c8e6c9",borderRadius:4,padding:"1px 5px"}}>{c.to}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {i<results.length-1&&<div style={{height:1,background:"#eee",marginTop:12}}/>}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+          {/* Right: reflection + learnings */}
+          <div style={{width:280,overflowY:"auto",padding:"14px 12px",borderLeft:"1px solid #ddd",background:"#fafafa",display:"flex",flexDirection:"column",gap:12}}>
+            <div style={{background:"#e8f5e9",borderRadius:12,padding:14}}>
+              <div style={{fontWeight:"bold",fontSize:13,color:"#2e7d32",marginBottom:10}}>💬 Reflection Questions</div>
+              {["Which combo gave best value?","When did stacking help more?","Which level was hardest?","How did Ace Cards change strategy?"].map((q,i)=>(
+                <div key={i} style={{display:"flex",gap:7,marginBottom:8,alignItems:"flex-start"}}>
+                  <span style={{fontSize:13,flexShrink:0}}>{"🌱🏠💡🃏"[i]}</span>
+                  <span style={{fontSize:11,color:"#333",lineHeight:1.6}}>{q}</span>
+                </div>
+              ))}
+            </div>
+            <div style={{background:"#e3f2fd",borderRadius:12,padding:14}}>
+              <div style={{fontWeight:"bold",fontSize:13,color:"#1565c0",marginBottom:10}}>🌱 Key Learnings</div>
+              {["Concrete foundations (6❤️) resist floods best","Brick & cement walls (6❤️) are most durable","Stacking lifts rooms above flood — critical at Lvl 2 & 3","Ace Cards add protection with leftover coins"].map((t,i)=>(
+                <div key={i} style={{fontSize:11,lineHeight:1.6,display:"flex",gap:6,marginBottom:6}}><span style={{color:"#1565c0",flexShrink:0}}>✦</span><span>{t}</span></div>
+              ))}
+            </div>
+            <button onClick={restart} style={{padding:"12px",borderRadius:12,border:"none",background:"linear-gradient(135deg,#1565c0,#1976d2)",color:"white",fontSize:14,fontWeight:"bold",cursor:"pointer"}}>🏠 Back to Home</button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ── GAME SCREEN ───────────────────────────────────────────────────────────
+  const buildStatus=[
+    {cat:'foundation',mat:fMat,count:fCount,target:fCount||1,label:"Found.",emoji:"🪨",color:"#5d4037"},
+    {cat:'wall',mat:wMat,count:wCount,target:fCount,label:"Walls",emoji:"🧱",color:"#c62828"},
+    {cat:'roof',mat:rMat,count:rCount,target:rTarget,label:"Roof",emoji:"🏠",color:"#4527a0"},
+  ];
+
+  return(
+    <div style={{width:"100%",height:"100%",display:"flex",flexDirection:"column",overflow:"hidden"}}>
+      {/* Top bar */}
+      <div style={{background:`linear-gradient(135deg,${lvl.color},${lvl.color}bb)`,padding:"6px 14px",color:"white",display:"flex",alignItems:"center",gap:10,flexShrink:0}}>
+        <button onClick={()=>{if(window.confirm("Go to home? Progress will be lost."))restart();}} style={{background:"rgba(255,255,255,0.22)",border:"none",borderRadius:7,color:"white",cursor:"pointer",fontSize:13,padding:"4px 8px"}}>🏠</button>
+        <div style={{flex:1,display:"flex",alignItems:"center",gap:10}}>
+          <span style={{fontWeight:"bold",fontSize:14}}>{lvl.emoji} Level {lvl.id}: {lvl.name}</span>
+          <span style={{fontSize:11,opacity:0.85}}>{lvl.desc}</span>
+        </div>
+        <div style={{display:"flex",gap:14,fontSize:12,fontWeight:"bold"}}>
+          <span>🎯 {lvl.target} ❤️</span><span>🪙 {BUDGET} coins</span>
+        </div>
+        <div style={{display:"flex",gap:5}}>
+          {LEVELS.map((l,i)=><div key={l.id} style={{width:22,height:5,borderRadius:3,background:i<=lvlIdx?"rgba(255,255,255,0.9)":"rgba(255,255,255,0.3)"}}/>)}
+        </div>
+      </div>
+
+      {/* Main: viewport left, controls right */}
+      <div style={{flex:1,display:"flex",overflow:"hidden"}}>
+
+        {/* LEFT: 3D Viewport */}
+        <div ref={wrapRef} onDragOver={e=>{e.preventDefault();setDragOver(true);}} onDragLeave={e=>{if(!wrapRef.current||!wrapRef.current.contains(e.relatedTarget))setDragOver(false);}} onDrop={handleDrop}
+          style={{flex:"0 0 60%",position:"relative",background:"#87ceeb",cursor:dragOver?"copy":"grab",userSelect:"none",overflow:"hidden"}}>
+          <canvas ref={canvasRef} style={{width:"100%",height:"100%",display:"block",touchAction:"none"}}/>
+          {dragOver&&<div style={{position:"absolute",inset:0,border:"3px dashed #1565c0",background:"rgba(21,101,192,0.07)",pointerEvents:"none",display:"flex",alignItems:"center",justifyContent:"center"}}><div style={{background:"rgba(21,101,192,0.9)",color:"white",borderRadius:12,padding:"10px 24px",fontSize:15,fontWeight:"bold"}}>🏗️ Drop to place block</div></div>}
+          {toast&&<div style={{position:"absolute",top:10,left:"50%",transform:"translateX(-50%)",background:"rgba(30,30,30,0.92)",color:"white",borderRadius:12,padding:"8px 18px",fontSize:12,fontWeight:"bold",pointerEvents:"none",zIndex:10,maxWidth:320,textAlign:"center",lineHeight:1.4,whiteSpace:"nowrap"}}>{toast}</div>}
+          {/* Layout + orbit controls */}
+          <div style={{position:"absolute",top:10,left:10,display:"flex",gap:5}}>
+            {[{v:false,label:"⬛⬛ Side"},{v:true,label:"🟦↑ Stack"}].map(({v,label})=>(
+              <button key={String(v)} onClick={()=>switchLayout(v)} style={{padding:"5px 11px",borderRadius:16,border:"none",background:stacked===v?"#1565c0":"rgba(255,255,255,0.9)",color:stacked===v?"white":"#333",fontSize:10,fontWeight:"bold",cursor:"pointer",boxShadow:"0 2px 6px rgba(0,0,0,0.2)"}}>{label}</button>
+            ))}
+          </div>
+          <button onClick={()=>setAutoRot(p=>!p)} style={{position:"absolute",top:10,right:10,padding:"6px 13px",borderRadius:20,border:"none",background:autoRot?"#1565c0":"rgba(255,255,255,0.9)",color:autoRot?"white":"#333",fontSize:11,fontWeight:"bold",cursor:"pointer",boxShadow:"0 2px 8px rgba(0,0,0,0.2)"}}>{autoRot?"⏹ Stop":"🔄 Orbit"}</button>
+          {screen==="game"&&fCount===0&&!dragOver&&<div style={{position:"absolute",bottom:12,left:"50%",transform:"translateX(-50%)",background:"rgba(0,0,0,0.6)",color:"white",borderRadius:20,padding:"6px 18px",fontSize:12,pointerEvents:"none",whiteSpace:"nowrap"}}>👆 Drag a Foundation card here · 🖱️ Drag to orbit</div>}
+          {screen==="simulating"&&!simDone&&<div style={{position:"absolute",top:46,left:"50%",transform:"translateX(-50%)",background:"rgba(21,101,192,0.9)",color:"white",borderRadius:20,padding:"7px 20px",fontSize:14,fontWeight:"bold",pointerEvents:"none"}}>🌊 Flood rising…</div>}
+          {(screen==="simulating"||screen==="levelresult")&&<div style={{position:"absolute",bottom:12,right:12,background:"rgba(0,0,0,0.6)",color:"white",borderRadius:8,padding:"5px 12px",fontSize:12}}>Flood: {["≈ top of foundation","≈ 1 block","≈ 2 blocks"][lvlIdx]}</div>}
+          {screen==="simulating"&&simDone&&<div style={{position:"absolute",inset:0,display:"flex",alignItems:"flex-end",justifyContent:"center",padding:16}}><button onClick={confirmResult} style={{padding:"13px 36px",borderRadius:14,border:"none",background:passed?"linear-gradient(135deg,#2e7d32,#388e3c)":"linear-gradient(135deg,#c62828,#d32f2f)",color:"white",fontSize:16,fontWeight:"bold",cursor:"pointer",boxShadow:"0 4px 16px rgba(0,0,0,0.4)"}}>{passed?"🎉 Survived! See Results":"😟 Flooded! See Results"}</button></div>}
+          {screen==="levelresult"&&<div style={{position:"absolute",top:0,left:0,right:0,background:passed?"rgba(27,94,32,0.85)":"rgba(183,28,28,0.85)",color:"white",textAlign:"center",padding:"11px 0"}}><span style={{fontSize:22}}>{passed?"🎉":"🌊"}</span><span style={{fontWeight:"bold",fontSize:17,marginLeft:8}}>{passed?"Survived!":"Flooded!"}</span><span style={{fontSize:14,marginLeft:12,opacity:0.9}}>❤️ {hearts}/{lvl.target}</span></div>}
+        </div>
+
+        {/* RIGHT: Controls panel */}
+        <div style={{flex:"0 0 40%",background:"#f4f6f9",borderLeft:"1px solid #dde2ea",display:"flex",flexDirection:"column",overflow:"hidden"}}>
+          {/* Stats bar */}
+          <div style={{display:"flex",gap:0,borderBottom:"1px solid #dde2ea",flexShrink:0}}>
+            {[{l:"❤️ Hearts",v:`${hearts}/${lvl.target}`,c:hearts>=lvl.target?"#2e7d32":"#e53935"},{l:"🪙 Coins Left",v:`${coinsLeft}`,c:coinsLeft<2?"#e53935":"#f57f17"},{l:"🏠 Rooms",v:`${fCount}`,c:"#1565c0"}].map(({l,v,c},i,arr)=>(
+              <div key={l} style={{flex:1,padding:"9px 6px",textAlign:"center",background:"white",borderRight:i<arr.length-1?"1px solid #eee":"none"}}>
+                <div style={{fontSize:9,color:"#999"}}>{l}</div>
+                <div style={{fontSize:16,fontWeight:"bold",color:c}}>{v}</div>
+              </div>
+            ))}
+          </div>
+          {/* Build status */}
+          <div style={{display:"flex",gap:6,padding:"8px 10px",borderBottom:"1px solid #dde2ea",flexShrink:0}}>
+            {buildStatus.map(({cat,mat,count,target,label,emoji,color})=>{
+              const done=count>0&&count>=target,partial=count>0&&count<target;
+              return(<div key={cat} style={{flex:1,background:done?"#e8f5e9":partial?"#fff8e1":"#f5f5f5",border:`1.5px solid ${done?"#4caf50":partial?"#ffc107":"#e0e0e0"}`,borderRadius:9,padding:"7px 7px 6px",position:"relative"}}>
+                <div style={{fontSize:9,color,fontWeight:"bold"}}>{emoji} {label}</div>
+                <div style={{fontSize:11,fontWeight:"bold",color:"#333",marginTop:1}}>{mat?mat.name.split(" ")[0]:"—"}{count>0?` ×${count}`:""}</div>
+                <div style={{fontSize:9,marginTop:1,color:done?"#2e7d32":partial?"#e65100":"#aaa"}}>{done?"✓ Done":partial?`+${target-count} more`:"Drag above"}</div>
+                {count>0&&screen==="game"&&<button onClick={()=>removeBlock(cat)} style={{position:"absolute",top:4,right:4,width:15,height:15,borderRadius:"50%",border:"none",background:"#ddd",color:"#555",fontSize:10,cursor:"pointer",lineHeight:1,padding:0}}>−</button>}
+              </div>);
+            })}
+          </div>
+
+          {/* Scrollable cards area */}
+          <div style={{flex:1,overflowY:"auto",padding:"8px 10px 12px"}}>
+
+            {/* Level result */}
+            {screen==="levelresult"&&(
+              <div style={{marginBottom:10}}>
+                <div style={{background:passed?"#e8f5e9":"#fce4ec",borderRadius:11,padding:12,borderLeft:`4px solid ${passed?"#4caf50":"#e53935"}`,marginBottom:8}}>
+                  <div style={{fontWeight:"bold",fontSize:12,marginBottom:6}}>💬 Reflection</div>
+                  <div style={{background:"white",borderRadius:7,padding:"7px 9px",marginBottom:6,display:"flex",gap:7,alignItems:"center"}}>
+                    <span>{hearts>=lvl.target?"✅":"❌"}</span>
+                    <div><div style={{fontSize:11,fontWeight:"bold",color:hearts>=lvl.target?"#2e7d32":"#c62828"}}>Score: {hearts}/{lvl.target} ❤️</div>{hearts<lvl.target&&<div style={{fontSize:10,color:"#888"}}>Need {lvl.target-hearts} more ❤️</div>}</div>
+                  </div>
+                  <div style={{background:"white",borderRadius:7,padding:"7px 9px",display:"flex",gap:7,alignItems:"center"}}>
+                    <span>{wallSafe?"✅":"❌"}</span>
+                    <div><div style={{fontSize:11,fontWeight:"bold",color:wallSafe?"#2e7d32":"#c62828"}}>{wallSafe?`${safeFloors} wall block${safeFloors>1?"s":""} above flood`:"All walls submerged!"}</div>{!wallSafe&&<div style={{fontSize:10,color:"#888"}}>Stack rooms to lift walls above flood.</div>}</div>
+                  </div>
+                </div>
+                <div style={{display:"flex",gap:8}}>
+                  {!passed&&<button onClick={retry} style={{flex:1,padding:"10px",borderRadius:10,border:"2px solid #1565c0",background:"white",color:"#1565c0",fontSize:12,fontWeight:"bold",cursor:"pointer"}}>🔄 Retry</button>}
+                  <button onClick={goNext} style={{flex:2,padding:"10px",borderRadius:10,border:"none",background:"linear-gradient(135deg,#1565c0,#1976d2)",color:"white",fontSize:12,fontWeight:"bold",cursor:"pointer"}}>{lvlIdx===2?"🏆 Results":"➡️ Next Level"}</button>
+                </div>
+              </div>
+            )}
+
+            {(screen==="game"||screen==="simulating")&&(
+              <>
+                {/* Material categories */}
+                {Object.entries(MATS).map(([cat,data])=>(
+                  <div key={cat} style={{background:"white",borderRadius:11,padding:"10px 10px 10px",marginBottom:8,boxShadow:"0 1px 5px rgba(0,0,0,0.07)"}}>
+                    <div style={{display:"flex",alignItems:"center",gap:5,marginBottom:7}}>
+                      <span style={{fontSize:14}}>{data.emoji}</span>
+                      <span style={{fontWeight:"bold",fontSize:12,color:data.color}}>{data.label}</span>
+                      <span style={{fontSize:9,color:"#bbb",marginLeft:2}}>per block · drag → grid</span>
+                    </div>
+                    <div style={{display:"flex",gap:5}}>
+                      {data.opts.map(opt=>{
+                        const{state,msg}=getCardState(cat,opt);
+                        const isSel=(cat==='foundation'?fMat:cat==='wall'?wMat:rMat)&&(cat==='foundation'?fMat:cat==='wall'?wMat:rMat).id===opt.id;
+                        const draggable=state==='ok'||isSel||state==='locked';
+                        return(<div key={opt.id} draggable={draggable}
+                          onDragStart={e=>{e.dataTransfer.setData('text/plain',JSON.stringify({cat,optId:opt.id}));}}
+                          onClick={()=>{if(state==='dim'||state==='incompat'){if(msg)show("🚫 "+msg);}else placeBlock(cat,opt);}}
+                          title={msg||undefined}
+                          style={{flex:1,border:`2px solid ${isSel?data.color:state==='incompat'?"#ef9a9a":"#e0e0e0"}`,borderRadius:9,padding:"8px 4px",textAlign:"center",cursor:draggable?"grab":"not-allowed",background:isSel?data.light:state==='incompat'?"#fff5f5":state==='dim'?"#f5f5f5":"white",opacity:state==='dim'||state==='incompat'?0.45:1,transform:isSel?"scale(1.03)":"scale(1)",transition:"all 0.14s",userSelect:"none",position:"relative"}}>
+                          {state==='incompat'&&<div style={{position:"absolute",top:2,right:3,fontSize:8,color:"#e53935"}}>🚫</div>}
+                          {state==='locked'&&<div style={{position:"absolute",top:2,right:3,fontSize:8}}>🔒</div>}
+                          <div style={{fontSize:18}}>{opt.emoji}</div>
+                          <div style={{fontSize:8,fontWeight:"bold",color:"#333",marginTop:3,lineHeight:1.3}}>{opt.name}</div>
+                          <div style={{marginTop:4,display:"flex",gap:2,justifyContent:"center"}}>
+                            <span style={{background:"#fff9c4",borderRadius:4,padding:"2px 4px",fontSize:9,fontWeight:"bold"}}>🪙{opt.cost}</span>
+                            <span style={{background:"#fce4ec",borderRadius:4,padding:"2px 4px",fontSize:9,fontWeight:"bold"}}>❤️{opt.hearts}</span>
+                          </div>
+                        </div>);
+                      })}
+                    </div>
+                  </div>
+                ))}
+
+                {/* Ace Cards */}
+                <div style={{background:"linear-gradient(135deg,#fffde7,#fff9c4)",border:"1.5px solid #f9a825",borderRadius:11,padding:"10px",marginBottom:10}}>
+                  <div style={{display:"flex",alignItems:"center",gap:5,marginBottom:6}}>
+                    <span>🃏</span><span style={{fontWeight:"bold",fontSize:12,color:"#e65100"}}>Ace Cards</span>
+                    <span style={{fontSize:9,color:"#aaa"}}>tap to buy</span>
+                  </div>
+                  <div style={{display:"flex",gap:5,marginBottom:aces.length?7:0}}>
+                    {ACE.map(c=>{const can=coinsLeft>=c.cost;return(
+                      <div key={c.id} onClick={()=>can&&setAces(p=>[...p,{...c,uid:Date.now()+Math.random()}])} style={{flex:1,border:"1.5px solid #f9a825",borderRadius:9,padding:"7px 4px",textAlign:"center",cursor:can?"pointer":"not-allowed",background:can?"white":"#f5f5f5",opacity:can?1:0.45}}>
+                        <div style={{fontSize:17}}>{c.emoji}</div>
+                        <div style={{fontSize:8,fontWeight:"bold",marginTop:3,lineHeight:1.3}}>{c.name}</div>
+                        <div style={{marginTop:4,display:"flex",gap:2,justifyContent:"center"}}>
+                          <span style={{background:"#fff9c4",borderRadius:4,padding:"2px 4px",fontSize:9,fontWeight:"bold"}}>🪙{c.cost}</span>
+                          <span style={{background:"#fce4ec",borderRadius:4,padding:"2px 4px",fontSize:9,fontWeight:"bold"}}>❤️{c.hearts}</span>
+                        </div>
+                      </div>
+                    );})}
+                  </div>
+                  {aces.length>0&&<div style={{display:"flex",gap:5,flexWrap:"wrap"}}>
+                    {aces.map(a=><div key={a.uid} style={{background:"white",border:"1px solid #f9a825",borderRadius:16,padding:"3px 8px",fontSize:10,display:"flex",alignItems:"center",gap:4}}>{a.emoji} {a.name} <span onClick={()=>setAces(p=>p.filter(x=>x.uid!==a.uid))} style={{cursor:"pointer",color:"#e53935",fontWeight:"bold",fontSize:12}}>×</span></div>)}
+                  </div>}
+                </div>
+
+                {/* Build button */}
+                {screen==="game"&&<button onClick={handleBuild} disabled={!isComplete} style={{width:"100%",padding:"13px",borderRadius:12,border:"none",background:isComplete?"linear-gradient(135deg,#1565c0,#1976d2)":"#bdbdbd",color:"white",fontSize:14,fontWeight:"bold",cursor:isComplete?"pointer":"not-allowed",boxShadow:isComplete?"0 4px 12px rgba(21,101,192,0.4)":"none",transition:"all 0.2s"}}>
+                  {isComplete?"🏗️ Build & Simulate Flood!":fCount===0?"⬆️ Drag a Foundation card to the grid":wCount<fCount?`Add ${fCount-wCount} more Wall block${fCount-wCount>1?"s":""}`:rCount<rTarget?`Add ${rTarget-rCount} more Roof block${rTarget-rCount>1?"s":""}`:""}</button>}
+              </>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(App));
+</script>
+</body>
+</html>
