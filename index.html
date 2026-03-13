@@ -1,2191 +1,444 @@
+```html
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-<meta charset="UTF-8"/>
-<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
-<title>Flood House Builder</title>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<meta charset="utf-8">
+<title>Flood Resilience Builder</title>
+<script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
+
 <style>
-/* ── Reset & Root ─────────────────────────────────────────── */
-*{box-sizing:border-box;margin:0;padding:0}
-html,body{width:100%;height:100%;background:#1a2340;font-family:'Segoe UI',sans-serif;overflow:hidden}
-#root{width:100%;height:100%;display:flex;flex-direction:column}
-button{cursor:pointer;font-family:inherit}
-input{font-family:inherit}
-::-webkit-scrollbar{width:4px}
-::-webkit-scrollbar-thumb{background:#555;border-radius:2px}
-.screen{width:100%;height:100%;display:flex;flex-direction:column;overflow:hidden}
 
-/* ── Setup Screen ─────────────────────────────────────────── */
-.setup-bg{
-  background:linear-gradient(135deg,#0f2027,#203a43,#2c5364);
-  align-items:center;justify-content:center;gap:20px;padding:24px
-}
-.setup-card{
-  background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);
-  border-radius:16px;padding:28px 32px;width:100%;max-width:460px
-}
-.setup-title{color:#fff;font-size:26px;font-weight:700;text-align:center;margin-bottom:6px}
-.setup-sub{color:rgba(255,255,255,0.5);font-size:13px;text-align:center;margin-bottom:22px}
-.player-row{display:flex;align-items:center;gap:10px;margin-bottom:10px}
-.player-avatar{
-  width:36px;height:36px;border-radius:50%;display:flex;align-items:center;
-  justify-content:center;font-size:14px;font-weight:700;flex-shrink:0
-}
-.player-input{
-  flex:1;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);
-  border-radius:8px;padding:8px 12px;color:#fff;font-size:14px;outline:none
-}
-.player-input:focus{border-color:rgba(255,255,255,0.35)}
-.player-input::placeholder{color:rgba(255,255,255,0.3)}
-.add-btn{
-  background:rgba(255,255,255,0.06);border:1px dashed rgba(255,255,255,0.18);
-  border-radius:8px;color:rgba(255,255,255,0.5);padding:9px;width:100%;font-size:13px
-}
-.add-btn:hover{background:rgba(255,255,255,0.1)}
-.start-btn{
-  width:100%;padding:13px;border-radius:30px;border:none;
-  background:linear-gradient(135deg,#29b6f6,#1565c0);color:#fff;
-  font-size:16px;font-weight:700;margin-top:16px;
-  box-shadow:0 4px 20px rgba(41,182,246,0.35)
-}
-.start-btn:disabled{background:#444;box-shadow:none;opacity:0.5}
-
-/* ── Game Layout ──────────────────────────────────────────── */
-.game-screen{flex-direction:row}
-.left-panel{width:62%;display:flex;flex-direction:column;overflow:hidden;position:relative}
-.right-panel{
-  width:38%;background:#0e1628;border-left:1px solid rgba(255,255,255,0.08);
-  display:flex;flex-direction:column;overflow:hidden
+body{
+margin:0;
+overflow:hidden;
+font-family:system-ui;
+background:#0b1020;
+color:white;
 }
 
-/* ── Topbar ───────────────────────────────────────────────── */
-.topbar{
-  background:rgba(0,0,0,0.4);border-bottom:1px solid rgba(255,255,255,0.08);
-  padding:7px 14px;display:flex;align-items:center;gap:10px;flex-shrink:0
-}
-.level-badge{padding:3px 10px;border-radius:12px;font-size:11px;font-weight:700;color:#fff}
-.player-tabs{display:flex;gap:4px;overflow-x:auto;flex:1}
-.ptab{
-  padding:5px 11px;border-radius:20px;border:none;font-size:11px;font-weight:700;
-  transition:all 0.2s;white-space:nowrap;color:rgba(255,255,255,0.5);
-  background:rgba(255,255,255,0.05);cursor:pointer
-}
-.ptab.active{color:#fff}
-
-/* ── 3D Canvas ────────────────────────────────────────────── */
-.canvas-wrap{flex:1;position:relative;overflow:hidden}
-canvas{width:100%!important;height:100%!important;display:block}
-.overlay-hint{
-  position:absolute;bottom:56px;left:50%;transform:translateX(-50%);
-  background:rgba(0,0,0,0.65);color:rgba(255,255,255,0.7);
-  border-radius:20px;padding:5px 16px;font-size:11px;
-  pointer-events:none;white-space:nowrap
-}
-.flood-label{
-  position:absolute;top:12px;left:50%;transform:translateX(-50%);
-  background:rgba(21,101,192,0.92);color:#fff;border-radius:20px;
-  padding:7px 22px;font-size:14px;font-weight:700;pointer-events:none;display:none
-}
-.orbit-btn{
-  position:absolute;top:10px;right:10px;padding:6px 13px;
-  border-radius:20px;border:none;background:rgba(255,255,255,0.12);
-  color:#fff;font-size:11px;font-weight:700
-}
-.orbit-btn:hover{background:rgba(255,255,255,0.2)}
-
-/* ── Right Panel ──────────────────────────────────────────── */
-.rp-header{
-  padding:12px 14px 8px;border-bottom:1px solid rgba(255,255,255,0.08);flex-shrink:0
-}
-.rp-phase{font-size:11px;color:rgba(255,255,255,0.4);margin-bottom:2px}
-.rp-title{font-size:15px;font-weight:700;color:#fff}
-.rp-scroll{flex:1;overflow-y:auto;padding:10px 12px 16px}
-
-/* ── Stat Boxes ───────────────────────────────────────────── */
-.stats-row{display:flex;gap:6px;margin-bottom:10px}
-.stat-box{
-  flex:1;background:rgba(255,255,255,0.05);border-radius:9px;
-  padding:8px 7px;text-align:center
-}
-.stat-label{font-size:9px;color:rgba(255,255,255,0.4);margin-bottom:2px}
-.stat-val{font-size:15px;font-weight:700;color:#fff}
-
-/* ── Dice ─────────────────────────────────────────────────── */
-.dice-area{
-  background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);
-  border-radius:12px;padding:16px;text-align:center;margin-bottom:10px
-}
-.dice-faces{display:flex;gap:18px;justify-content:center;margin:12px 0}
-.die{
-  width:52px;height:52px;background:linear-gradient(135deg,#fff,#eee);
-  border-radius:10px;display:flex;align-items:center;justify-content:center;
-  font-size:26px;color:#1a1a2e;font-weight:900;
-  box-shadow:0 3px 10px rgba(0,0,0,0.4);transition:transform 0.1s
-}
-@keyframes diceRoll{
-  0%{transform:rotate(0deg) scale(1)}
-  25%{transform:rotate(15deg) scale(1.1)}
-  50%{transform:rotate(-10deg) scale(0.9)}
-  75%{transform:rotate(8deg) scale(1.05)}
-  100%{transform:rotate(0deg) scale(1)}
-}
-.die.rolling{animation:diceRoll 0.45s ease-out}
-.roll-btn{
-  padding:10px 28px;border-radius:20px;border:none;
-  background:linear-gradient(135deg,#f9a825,#e65100);color:#fff;
-  font-size:14px;font-weight:700;box-shadow:0 3px 10px rgba(230,81,0,0.4)
+#ui{
+position:absolute;
+right:0;
+top:0;
+width:250px;
+height:100%;
+background:#0e162e;
+border-left:1px solid #22345a;
+padding:12px;
 }
 
-/* ── Build Status Strip ───────────────────────────────────── */
-.build-strip{display:flex;gap:5px;margin-bottom:8px}
-.bsbox{flex:1;border-radius:8px;padding:7px 6px;position:relative;border:1.5px solid}
-.bslabel{font-size:8px;font-weight:700;margin-bottom:2px}
-.bsval{font-size:10px;font-weight:700;color:#fff}
-.bshint{font-size:8px;margin-top:2px}
-.rem-btn{
-  position:absolute;top:3px;right:3px;width:15px;height:15px;border-radius:50%;
-  border:none;background:#444;color:#ccc;font-size:9px;
-  line-height:15px;padding:0;text-align:center;cursor:pointer
+h3{
+margin:10px 0 6px;
+font-size:14px;
+color:#8ea7ff;
 }
 
-/* ── Material Cards ───────────────────────────────────────── */
-.mat-section{
-  background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.07);
-  border-radius:11px;padding:10px;margin-bottom:8px
-}
-.mat-title{
-  font-size:10px;font-weight:700;color:rgba(255,255,255,0.5);
-  margin-bottom:8px;display:flex;align-items:center;gap:5px
-}
-.mat-cards{display:flex;gap:5px}
-.mcard{
-  flex:1;border-radius:9px;padding:8px 4px;text-align:center;
-  cursor:grab;border:1.5px solid;transition:all 0.14s;
-  position:relative;user-select:none
-}
-.mcard:active{cursor:grabbing}
-.mc-emoji{font-size:18px}
-.mc-name{font-size:7.5px;font-weight:700;color:rgba(255,255,255,0.85);margin-top:3px;line-height:1.3}
-.mc-stats{display:flex;gap:2px;justify-content:center;margin-top:4px}
-.mc-pill{border-radius:4px;padding:2px 4px;font-size:8px;font-weight:700}
-.mc-badge{position:absolute;top:2px;right:2px;font-size:7px}
-.incompat-badge{color:#ff5252}
-.sel-badge{color:#69f0ae}
-
-/* ── Drop Zones ───────────────────────────────────────────── */
-.drop-zone-row{display:flex;gap:5px;margin-top:5px}
-.drop-zone{
-  flex:1;border:2px dashed rgba(41,182,246,0.5);border-radius:8px;
-  background:rgba(41,182,246,0.05);padding:7px 5px;text-align:center;
-  font-size:10px;color:rgba(41,182,246,0.7);transition:all 0.18s;font-weight:700;
-  cursor:pointer
-}
-.drop-zone.dz-stack{
-  border-color:rgba(105,240,174,0.5);background:rgba(105,240,174,0.05);
-  color:rgba(105,240,174,0.7)
-}
-.drop-zone.dz-hint{
-  transform:scale(1.03);
-  box-shadow:0 0 8px rgba(41,182,246,0.3)
-}
-.drop-zone.dz-stack.dz-hint{box-shadow:0 0 8px rgba(105,240,174,0.3)}
-.drop-zone.active-dz{
-  background:rgba(41,182,246,0.18);border-color:#29b6f6;
-  box-shadow:0 0 12px rgba(41,182,246,0.4)
-}
-.drop-zone.dz-stack.active-dz{
-  background:rgba(105,240,174,0.18);border-color:#69f0ae;
-  box-shadow:0 0 12px rgba(105,240,174,0.4)
+.row{
+display:flex;
+flex-wrap:wrap;
 }
 
-/* ── Ace Cards ────────────────────────────────────────────── */
-.ace-section{
-  background:rgba(249,168,37,0.07);border:1px solid rgba(249,168,37,0.18);
-  border-radius:11px;padding:10px;margin-bottom:8px
+.mat{
+width:70px;
+height:70px;
+background:#182347;
+border:1px solid #2d4170;
+border-radius:10px;
+display:flex;
+flex-direction:column;
+align-items:center;
+justify-content:center;
+margin:6px;
+cursor:grab;
+font-size:12px;
 }
-.ace-title{font-size:10px;font-weight:700;color:#f9a825;margin-bottom:7px}
-.ace-cards{display:flex;gap:5px;flex-wrap:wrap}
-.acard{
-  background:rgba(249,168,37,0.1);border:1.5px solid rgba(249,168,37,0.25);
-  border-radius:8px;padding:6px 8px;font-size:10px;color:#ffd54f;
-  display:flex;align-items:flex-start;gap:5px;cursor:pointer;transition:all 0.15s;flex:1;min-width:120px
-}
-.acard:hover{background:rgba(249,168,37,0.18)}
-.acard.used{opacity:0.32;cursor:default;text-decoration:line-through}
-.acard.played{border-color:#69f0ae;color:#69f0ae;background:rgba(105,240,174,0.1)}
 
-/* ── Damage Cards ─────────────────────────────────────────── */
-.dmg-card{
-  background:rgba(255,255,255,0.04);border-radius:10px;
-  padding:10px;margin-bottom:10px;border-left:3px solid
+.mat:hover{
+border-color:#7ab3ff;
 }
-.dmg-player{font-size:11px;font-weight:700;color:#fff;margin-bottom:6px;display:flex;align-items:center;gap:5px;flex-wrap:wrap}
-.dmg-row{
-  display:flex;align-items:center;gap:6px;margin-bottom:3px;
-  font-size:10px;color:rgba(255,255,255,0.7);flex-wrap:wrap
-}
-.dmg-roll{font-size:9px;color:rgba(255,255,255,0.3);margin-left:auto}
 
-/* ── Action Buttons ───────────────────────────────────────── */
-.action-btn{
-  width:100%;padding:12px;border-radius:11px;border:none;
-  font-size:14px;font-weight:700;color:#fff;margin-top:4px;cursor:pointer
+#coins{
+font-size:18px;
+margin-bottom:10px;
 }
-.action-btn.primary{background:linear-gradient(135deg,#1565c0,#1976d2)}
-.action-btn.flood{background:linear-gradient(135deg,#c62828,#d32f2f)}
-.action-btn.disabled{background:#2a2a3a;color:#555;cursor:default}
-.action-btn.primary:hover{background:linear-gradient(135deg,#1976d2,#1e88e5)}
 
-/* ── Damage Pills ─────────────────────────────────────────── */
-.dpill{display:inline-block;border-radius:5px;padding:2px 7px;font-size:9px;font-weight:700}
-.dpill-0{background:rgba(105,240,174,0.15);color:#69f0ae}
-.dpill-1{background:rgba(255,193,7,0.15);color:#ffca28}
-.dpill-2{background:rgba(255,82,82,0.15);color:#ff5252}
-
-/* ── End Screen ───────────────────────────────────────────── */
-.end-screen{background:#0e1628;flex-direction:row;overflow:hidden}
-.end-left{flex:1;overflow-y:auto;padding:20px}
-.end-right{
-  width:270px;overflow-y:auto;padding:16px;
-  border-left:1px solid rgba(255,255,255,0.08);background:#0a1020
-}
-.end-title{color:#fff;font-size:20px;font-weight:700;margin-bottom:16px}
-.winner-card{
-  background:linear-gradient(135deg,rgba(249,168,37,0.12),rgba(230,81,0,0.08));
-  border:1px solid rgba(249,168,37,0.28);border-radius:14px;
-  padding:16px;margin-bottom:16px;text-align:center
-}
-.round-block{
-  background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);
-  border-radius:12px;padding:12px;margin-bottom:10px
-}
-.rb-header{display:flex;align-items:center;gap:8px;margin-bottom:8px}
-.rb-num{
-  width:26px;height:26px;border-radius:50%;display:flex;align-items:center;
-  justify-content:center;font-size:11px;font-weight:700;color:#fff;flex-shrink:0
-}
-.player-result-row{
-  display:flex;align-items:center;gap:6px;padding:5px 0;
-  border-bottom:1px solid rgba(255,255,255,0.05);font-size:10px;
-  color:rgba(255,255,255,0.7);flex-wrap:wrap
-}
-.player-result-row:last-child{border-bottom:none}
-.reflect-q{
-  display:flex;gap:8px;margin-bottom:12px;align-items:flex-start;
-  font-size:12px;color:rgba(255,255,255,0.7);line-height:1.6
-}
-.learn-item{display:flex;gap:6px;margin-bottom:8px;font-size:11px;color:rgba(255,255,255,0.6);line-height:1.5}
-.home-btn{
-  width:100%;padding:12px;border-radius:12px;border:none;
-  background:linear-gradient(135deg,#1565c0,#1976d2);color:#fff;
-  font-size:14px;font-weight:700;margin-top:14px;cursor:pointer
-}
 </style>
 </head>
-<body>
-<div id="root"></div>
 
-<!-- ╔══════════════════════════════════════════════════════════════════╗
-     ║  COMPILATION ORDER — paste each part's JS here in this order:  ║
-     ║  1. part1_data.js   (constants, probabilities, causes)          ║
-     ║  2. part2_logic.js  (game state, rolls, build logic)            ║
-     ║  3. part3_scene.js  (Three.js 3D scene)                         ║
-     ║  4. part4_ui.js     (all screen rendering & events)             ║
-     ╚══════════════════════════════════════════════════════════════════╝ -->
+<body>
+
+<div id="ui">
+
+<div id="coins">Coins: 10</div>
+
+<h3>FOUNDATION</h3>
+<div class="row">
+<div class="mat" draggable="true" data-cat="foundation" data-id="mud">Mud</div>
+<div class="mat" draggable="true" data-cat="foundation" data-id="stone">Stone</div>
+<div class="mat" draggable="true" data-cat="foundation" data-id="concrete">Concrete</div>
+</div>
+
+<h3>WALLS</h3>
+<div class="row">
+<div class="mat" draggable="true" data-cat="wall" data-id="mud">Mud</div>
+<div class="mat" draggable="true" data-cat="wall" data-id="brick">Brick</div>
+<div class="mat" draggable="true" data-cat="wall" data-id="concrete">Concrete</div>
+</div>
+
+<h3>ROOF</h3>
+<div class="row">
+<div class="mat" draggable="true" data-cat="roof" data-id="thatch">Thatch</div>
+<div class="mat" draggable="true" data-cat="roof" data-id="metal">Metal</div>
+<div class="mat" draggable="true" data-cat="roof" data-id="concrete">Concrete</div>
+</div>
+
+</div>
 
 <script>
-// ── PASTE part1_data.js HERE ──────────────────────────────────────────────
-// ============================================================
-//  PART 1 — DATA.JS
-//  Constants, probability tables, cause narratives, ace cards
-//  Compiled standalone — no dependencies
-// ============================================================
 
-const PLAYER_COLORS = ['#29b6f6','#69f0ae','#ff8a65','#ce93d8','#fff176','#80cbc4'];
+/* ------------------------------------------------
+SCENE SETUP
+------------------------------------------------ */
 
-const LEVELS = [
-  { id:1, name:'Knee-Level Flood',  color:'#29b6f6', emoji:'💧',   floodH:0.35, desc:'Flood rises to top of foundation' },
-  { id:2, name:'Waist-Level Flood', color:'#1976d2', emoji:'🌊',   floodH:1.0,  desc:'Flood rises 1 block high' },
-  { id:3, name:'Chest-Level Flood', color:'#880e4f', emoji:'🌊🌊', floodH:2.0,  desc:'Flood rises 2 blocks high' },
-];
+const scene = new THREE.Scene()
 
-const MATS = {
-  foundation: {
-    label:'Foundation', emoji:'🪨',
-    opts:[
-      { id:'f1', name:'Concrete',    cost:4, emoji:'🏗️', hex:0x78909c, col:'rgba(120,144,156,0.15)', border:'rgba(120,144,156,0.5)' },
-      { id:'f2', name:'Stone & Mud', cost:2, emoji:'🪨', hex:0x8d6e63, col:'rgba(141,110,99,0.15)',  border:'rgba(141,110,99,0.5)' },
-      { id:'f3', name:'Mud Plinth',  cost:1, emoji:'🌿', hex:0xbcaaa4, col:'rgba(188,170,164,0.15)', border:'rgba(188,170,164,0.5)' },
-    ]
-  },
-  wall: {
-    label:'Walls', emoji:'🧱',
-    opts:[
-      { id:'w1', name:'Brick & Cement', cost:4, emoji:'🧱', hex:0xe57373, col:'rgba(229,115,115,0.15)', border:'rgba(229,115,115,0.5)' },
-      { id:'w2', name:'Bamboo & Mud',   cost:2, emoji:'🌾', hex:0xdce775, col:'rgba(220,231,117,0.15)', border:'rgba(220,231,117,0.5)' },
-      { id:'w3', name:'Mud Walls',      cost:1, emoji:'🟫', hex:0xa1887f, col:'rgba(161,136,127,0.15)', border:'rgba(161,136,127,0.5)' },
-    ]
-  },
-  roof: {
-    label:'Roof', emoji:'🏠',
-    opts:[
-      { id:'r1', name:'Concrete Roof',  cost:4, emoji:'🏛️', hex:0x546e7a, col:'rgba(84,110,122,0.15)',  border:'rgba(84,110,122,0.5)' },
-      { id:'r2', name:'Metal Sheets',   cost:2, emoji:'⚙️', hex:0x90a4ae, col:'rgba(144,164,174,0.15)', border:'rgba(144,164,174,0.5)' },
-      { id:'r3', name:'Thatch Roof',    cost:1, emoji:'🌿', hex:0xcddc39, col:'rgba(205,220,57,0.15)',  border:'rgba(205,220,57,0.5)' },
-    ]
-  },
-};
+const camera = new THREE.PerspectiveCamera(
+60,
+window.innerWidth/window.innerHeight,
+0.1,
+1000
+)
 
-const ALL_MATS_FLAT = [...MATS.foundation.opts, ...MATS.wall.opts, ...MATS.roof.opts];
+camera.position.set(10,8,10)
 
-// Compatibility: which wall/roof types can sit on which foundation/wall types
-const COMPAT = {
-  foundation: { f1:['w1','w2','w3'], f2:['w1','w2','w3'], f3:['w2','w3'] },
-  wall:       { w1:['r1','r2','r3'], w2:['r2','r3'],      w3:['r2','r3'] },
-};
-const IMSG = {
-  f3_w1: 'Mud Plinth cannot support heavy Brick & Cement walls',
-  w2_r1: 'Bamboo walls cannot hold a Concrete roof',
-  w3_r1: 'Mud walls cannot hold a Concrete roof',
-};
+const renderer = new THREE.WebGLRenderer({antialias:true})
+renderer.setSize(window.innerWidth,window.innerHeight)
+renderer.shadowMap.enabled=true
 
-const ACE_POOL = [
-  { id:'a1', name:'Sandbag Wall',      emoji:'🛡️', desc:'Flood treated as one level lower for all components' },
-  { id:'a2', name:'Drainage Channel',  emoji:'💧', desc:'Walls always roll at Level 1 distribution' },
-  { id:'a3', name:'Waterproof Coat',   emoji:'🪵', desc:'Walls treated one material tier stronger this round' },
-  { id:'a4', name:'Foundation Shield', emoji:'🏗️', desc:'Foundation takes no damage this flood' },
-  { id:'a5', name:'Emergency Repair',  emoji:'🔧', desc:'After flood: worst damaged component improves one tier' },
-  { id:'a6', name:'Elevated Platform', emoji:'🏠', desc:'Foundation treated one material tier stronger this round' },
-];
+document.body.appendChild(renderer.domElement)
 
-// ── Damage probability tables ─────────────────────────────────────────────
-// Each: [safe%, repair%, collapse%]  — sums to 100 per row
-// Rows: Level 1, Level 2, Level 3
-const FDMG = {
-  f1: [[78,18, 4],[52,36,12],[30,48,22]],
-  f2: [[72,22, 6],[38,42,20],[14,45,41]],
-  f3: [[68,24, 8],[22,45,33],[ 5,28,67]],
-};
-const WDMG = {
-  w1: [[75,20, 5],[48,38,14],[25,50,25]],
-  w2: [[65,28, 7],[35,42,23],[15,45,40]],
-  w3: [[38,35,27],[12,35,53],[ 3,18,79]],
-};
-// Roof only fully evaluated at Level 3; earlier levels use safe default
-const RDMG = {
-  r1: [70,25, 5],
-  r2: [45,42,13],
-  r3: [15,40,45],
-};
+/* ------------------------------------------------
+LIGHTING
+------------------------------------------------ */
 
-const DMG_LABELS = ['✅ Safe','🔧 Repairs Needed','☠️ Complete Damage'];
-const DMG_COLORS = ['#69f0ae','#ffca28','#ff5252'];
-const DMG_SHORT  = ['Safe','Repairs','Collapsed'];
+const sun = new THREE.DirectionalLight(0xffffff,1.2)
+sun.position.set(5,10,5)
+sun.castShadow=true
+scene.add(sun)
 
-// 3D geometry constants
-const FH = 0.35;   // foundation height
-const WH = 1.0;    // wall height per floor
-const PEAK = 0.65; // roof peak height
-const MAX_ROOMS = 5;
-const STARTER_COST = 3; // coins equivalent of free starter mud hut (1+1+1)
+scene.add(new THREE.AmbientLight(0x445577))
 
-// ── Damage Cause Narratives ───────────────────────────────────────────────
-// Indexed as: DAMAGE_CAUSES[component][materialId][tier 0|1|2]
-const DAMAGE_CAUSES = {
-  foundation: {
-    f1: { // Concrete
-      0: [
-        "The concrete foundation held firm — its density and reinforcement resisted both water uplift and soil movement.",
-        "Stable sub-soil conditions supported the concrete base. Good compaction during construction paid off today.",
-        "The reinforced slab distributed load effectively — no differential settlement detected despite sustained flooding.",
-      ],
-      1: [
-        "Hairline cracks appeared where water pressure cycled repeatedly through the slab. Minor — but seal them before next flood.",
-        "Micro-fractures allowed water seepage, suggesting early-stage soil erosion beneath the slab. Foundation needs inspection.",
-        "Surface spalling detected: repeated wetting and drying weakened the outer concrete layer. Core is intact, but repairs are needed.",
-      ],
-      2: [
-        "Heavy concrete overwhelmed waterlogged, loose soil — the foundation sank unevenly (differential settlement), collapsing the structure. Soft soils under concrete are a known risk.",
-        "The soil beneath was saturated fill, not bearing ground. The concrete slab's own weight drove it downward — a heavier foundation is not always better.",
-        "Waterlogged clay couldn't bear the concrete's mass. The slab punched through the soil layer, causing sudden catastrophic collapse.",
-      ],
-    },
-    f2: { // Stone & Mud
-      0: [
-        "Stone and mud foundation performed well — natural materials allowed slight flex without structural failure.",
-        "Good craftsmanship kept the rubble stone joints tight. The mud mortar held at this flood height.",
-        "Rubble stone distributed load effectively and the mud mortar held intact through this flood level.",
-      ],
-      1: [
-        "Mud mortar between stones began softening — joints need repointing before next flood or walls risk shifting.",
-        "Some stones shifted as mud binding lost cohesion in floodwater. Minor undermining detected under the wall line.",
-        "Water penetrated stone joints, softening the mud fill. Stable but weakened — urgent repointing required.",
-      ],
-      2: [
-        "Mud mortar completely dissolved in sustained floodwater. Stones scattered and the foundation lost all structural integrity.",
-        "Prolonged submersion turned the mud binding to slurry. Stones shifted outward and the structure collapsed.",
-        "Water pressure plus dissolved mortar caused the rubble base to spread. Foundation failure was sudden — the binding material had no remaining cohesion.",
-      ],
-    },
-    f3: { // Raised Mud Plinth
-      0: [
-        "The raised plinth elevated the house above the critical flood zone — a traditional resilience strategy that worked perfectly this round.",
-        "Plinth height kept floodwater below the vulnerable wall base. A centuries-old technique that proved effective today.",
-        "Well-compacted raised plinth with lime plaster resisted water absorption. Elevation matters more than material at shallow floods.",
-      ],
-      1: [
-        "Surface erosion on the plinth faces — the core is intact, but replastering and re-compaction are needed urgently.",
-        "Floodwater undermined the plinth toe — shallow erosion that needs repair before it deepens to the core.",
-        "Water wicked into the plinth body, creating soft spots. Stable for now, but compromised for the next flood.",
-      ],
-      2: [
-        "The plinth wasn't raised high enough for this flood depth — sustained flooding dissolved the compacted earth entirely. Elevation advantage disappeared.",
-        "Mudflow eroded the plinth from its base, removing all support. The structure sank and tilted — classic under-height plinth failure.",
-        "Water overwhelmed the plinth material at this depth. The earth returned to mud and the foundation failed completely.",
-      ],
-    },
-  },
+/* ------------------------------------------------
+TERRAIN
+------------------------------------------------ */
 
-  wall: {
-    w1: { // Brick & Cement
-      0: [
-        "Brick and cement walls showed excellent flood resistance — dense construction prevented water penetration.",
-        "Cement mortar joints held firm throughout. Walls are structurally sound with no movement detected.",
-        "The brick mass resisted water pressure effectively. No cracking or deformation observed.",
-      ],
-      1: [
-        "Efflorescence (white salt blooms) appeared on bricks — water penetrated and is leaching minerals. Needs sealing before next flood.",
-        "Minor cracking at mortar joints from water pressure cycles. Structurally stable but requires repointing.",
-        "Lower brick courses show spalling from prolonged water contact. Upper structure intact — repair the base courses.",
-      ],
-      2: [
-        "Water pressure built up behind the walls and caused sudden blow-out. The walls buckled outward — a known failure mode when drainage is blocked.",
-        "Saturated soil created lateral pressure exceeding the brick-mortar bond strength. Walls collapsed outward catastrophically.",
-        "Foundation movement translated stress fractures up through the masonry. The brick shear plane failed completely.",
-      ],
-    },
-    w2: { // Bamboo & Mud
-      0: [
-        "Bamboo's natural flexibility absorbed flood pressure — it bent but didn't break. This is exactly the traditional advantage of organic materials.",
-        "The bamboo frame performed as intended — organic resilience let the structure move with water rather than fight it.",
-        "Bamboo and mud walls held this round. Stacking or elevation helped keep the critical bamboo-base joint dry.",
-      ],
-      1: [
-        "Mud infill washed away from between bamboo poles — the structural frame is intact but exposed. Needs re-mudding before next flood.",
-        "Some bamboo poles show early water damage. Organic materials need treatment before they weaken further at depth.",
-        "Mud coating stripped off in patches — bamboo skeleton is exposed but undamaged. Re-application is urgent.",
-      ],
-      2: [
-        "Bamboo poles, weakened by sustained submersion, lost tensile strength and snapped under lateral water pressure.",
-        "Combined mud dissolution and bamboo fiber degradation caused complete wall failure at the base joints.",
-        "Bamboo rotted at the point where it met the saturated foundation. Structural failure cascaded up the entire wall.",
-      ],
-    },
-    w3: { // Mud Walls
-      0: [
-        "Against probability, the mud walls held. This reflects good clay composition, wall thickness, or a well-applied lime plaster that slowed absorption.",
-        "Mud walls survived this round — likely due to a good clay-to-sand ratio that slowed water penetration. A fortunate outcome.",
-        "Thick, well-compacted mud walls can resist shallow flooding. Today's soil mix was on the resilient end of the natural range.",
-      ],
-      1: [
-        "Significant softening and surface erosion visible. The material is absorbing water and losing cohesion — urgent repairs critical.",
-        "Large plaster sections have fallen off, exposing raw mud. Rapid erosion will continue — immediate replastering needed.",
-        "Mud walls visibly leaning. Water has softened the base and the structure is dangerously unstable but still standing.",
-      ],
-      2: [
-        "Mud walls dissolved progressively — sustained flooding returned the compacted earth to its natural state. This is the classic failure mode.",
-        "The walls melted. Earthen construction cannot survive sustained flooding at this level. The material had no path to survival.",
-        "Prolonged water contact turned mud walls to slurry. Catastrophic collapse — exactly the risk this material carries at this flood depth.",
-      ],
-    },
-  },
+function createTerrain(){
 
-  roof: {
-    r1: { // Concrete Roof
-      0: [
-        "Concrete roof slab remained intact — no cracking or water penetration under flood conditions.",
-        "The concrete mass resisted all upward water pressure. No settlement or structural compromise detected.",
-        "Roof performed as expected — solid construction with no structural failure.",
-      ],
-      1: [
-        "Hairline cracks appeared in the slab — likely from differential movement in the weakened walls below. Needs immediate sealing.",
-        "Rebars show early signs of rust — water penetrated micro-cracks and began oxidizing the steel reinforcement.",
-        "One corner shows slight settlement — a wall below shifted, transferring stress fractures into the slab.",
-      ],
-      2: [
-        "When walls failed, the concrete roof's own weight accelerated total collapse. A heavy roof magnifies every failure below it.",
-        "Wall buckling transferred forces to the slab, which snapped at its weakest structural point.",
-        "Concrete roof collapsed inward when supporting walls gave way — the mass made the collapse total and sudden.",
-      ],
-    },
-    r2: { // Metal Sheets
-      0: [
-        "Metal sheets held firm — no water ingress and the fastening system remained intact.",
-        "Lightweight metal rode out the flood well — flexible enough to absorb pressure without failure.",
-        "Metal sheets performed reliably. Some noise from water uplift but no structural compromise.",
-      ],
-      1: [
-        "Several sheets lifted under flood water uplift pressure — gaps formed allowing water ingress.",
-        "Rust accelerated at sheet overlaps — prolonged floodwater contact has compromised the material.",
-        "Sheet fasteners showing pull-through stress — the roof needs re-fastening and inspection urgently.",
-      ],
-      2: [
-        "Sheets ripped off entirely by flood water velocity and wind uplift — complete roof failure.",
-        "Uplift pressure exceeded fastening capacity — all sheets detached nearly simultaneously.",
-        "Wall shift transferred forces to the roof connectors, which failed under shear load. Full roof loss.",
-      ],
-    },
-    r3: { // Thatch
-      0: [
-        "Thatch roof survived — good pitch and material depth helped channel water away effectively.",
-        "Traditional thatching technique proved its value. Steep pitch prevented pooling and water penetration.",
-        "The thatch held this round. Its flexibility absorbed flood conditions better than a rigid roof might have.",
-      ],
-      1: [
-        "Thatch absorbed significant water — heavy and damaged. Multiple sections need replacement urgently.",
-        "Several thatch courses washed away or began rotting — gaps formed. Requires immediate re-thatching.",
-        "Thatch waterlogged and drooping — structural integrity compromised and the weight is straining the wall plates.",
-      ],
-      2: [
-        "Waterlogged thatch collapsed under its own weight — organic material disintegrated and the roof gave way.",
-        "The thatch dissolved. At this flood level, organic roof material cannot survive. Complete replacement required.",
-        "Thatch absorption exceeded capacity — material failed structurally and the roof collapsed inward.",
-      ],
-    },
-  },
-};
+const geo = new THREE.PlaneGeometry(80,80,60,60)
 
-// Returns a random cause string for the given component, material, and damage tier
-function getCause(component, matId, tier) {
-  const pool = DAMAGE_CAUSES[component]?.[matId]?.[tier];
-  if (!pool || pool.length === 0) return '';
-  return pool[Math.floor(Math.random() * pool.length)];
+const pos = geo.attributes.position
+
+for(let i=0;i<pos.count;i++){
+
+const y=(Math.random()-0.5)*0.2
+pos.setY(i,y)
+
 }
 
-// Utility helpers
-function matById(id)  { return ALL_MATS_FLAT.find(m => m.id === id); }
-function matCat(id)   { if (id.startsWith('f')) return 'foundation'; if (id.startsWith('w')) return 'wall'; return 'roof'; }
+geo.computeVertexNormals()
 
-function getIncompat(cat, optId, fMat, wMat) {
-  if (cat === 'wall' && fMat) {
-    const allowed = COMPAT.foundation[fMat.id];
-    if (allowed && !allowed.includes(optId)) return IMSG[fMat.id + '_' + optId] || 'Incompatible with current foundation';
-  }
-  if (cat === 'roof' && wMat) {
-    const allowed = COMPAT.wall[wMat.id];
-    if (allowed && !allowed.includes(optId)) return IMSG[wMat.id + '_' + optId] || 'Incompatible with current walls';
-  }
-  return null;
+const mat = new THREE.MeshLambertMaterial({color:0x4e8c3a})
+
+const mesh = new THREE.Mesh(geo,mat)
+
+mesh.rotation.x=-Math.PI/2
+mesh.receiveShadow=true
+
+scene.add(mesh)
+
 }
 
-// ── PASTE part2_logic.js HERE ─────────────────────────────────────────────
-// ============================================================
-//  PART 2 — LOGIC.JS
-//  Game state, damage rolls, build/undo logic
-//  Depends on: part1_data.js
-// ============================================================
+createTerrain()
 
-// ── Global State ──────────────────────────────────────────────────────────
-let G = {};           // main game state
-let undoStack = [];   // per-player build undo history
+/* ------------------------------------------------
+PROCEDURAL TREES
+------------------------------------------------ */
 
-// ── Weighted Random ───────────────────────────────────────────────────────
-function weightedRandom(probs) {
-  const r = Math.random() * 100;
-  let sum = 0;
-  for (let i = 0; i < probs.length; i++) {
-    sum += probs[i];
-    if (r < sum) return i;
-  }
-  return probs.length - 1;
+function addTree(x,z){
+
+const trunk = new THREE.Mesh(
+new THREE.CylinderGeometry(0.1,0.1,1),
+new THREE.MeshLambertMaterial({color:0x7a4d2c})
+)
+
+trunk.position.set(x,0.5,z)
+
+const crown = new THREE.Mesh(
+new THREE.SphereGeometry(0.6),
+new THREE.MeshLambertMaterial({color:0x2f7d32})
+)
+
+crown.position.set(x,1.3,z)
+
+scene.add(trunk)
+scene.add(crown)
+
 }
 
-// ── Damage Roll Engine ────────────────────────────────────────────────────
-// Returns { fDmg, wDmg, rDmg, overall, rolls:{f,w,r}, notes:[], causes:{} }
-function rollDamage(player, lvlIdx, aces) {
-  const { fMat, wMat, rMat, fCount, stacked } = player.house;
+for(let i=0;i<35;i++){
 
-  // House incomplete / collapsed → auto full damage
-  if (!fMat || !wMat || !rMat || fCount === 0) {
-    return { fDmg:2, wDmg:2, rDmg:2, overall:2,
-             rolls:{ f:0, w:0, r:0 }, notes:['House incomplete — full damage applied'], causes:{} };
-  }
+addTree(
+(Math.random()-0.5)*35,
+(Math.random()-0.5)*35
+)
 
-  const notes = [];
-  const causes = {};
-  const aPlayed = aces || [];
-  const lvl = LEVELS[lvlIdx];
-
-  let fProbs = [...FDMG[fMat.id][lvlIdx]];
-  let wProbs = [...WDMG[wMat.id][lvlIdx]];
-  // Roof is only fully evaluated at Level 3; earlier rounds use a very safe default
-  let rProbs = lvlIdx === 2 ? [...RDMG[rMat.id]] : [90, 8, 2];
-
-  // ── Stacking elevation benefit ───────────────────────────────────────
-  // Count floors whose bottom edge is above the flood line
-  let floorsAboveWater = 0;
-  if (stacked) {
-    for (let fl = 0; fl < fCount; fl++) {
-      const floorBottom = FH + fl * WH;
-      if (floorBottom >= lvl.floodH) floorsAboveWater++;
-    }
-  } else {
-    // Horizontal layout: foundation top = FH; walls start there
-    if (FH >= lvl.floodH) floorsAboveWater = fCount;
-    else if (FH + WH > lvl.floodH) floorsAboveWater = fCount; // walls partially above
-  }
-
-  if (floorsAboveWater > 0) {
-    const boost = Math.min(35, floorsAboveWater * 15);
-    wProbs = [Math.min(96, wProbs[0] + boost), wProbs[1], Math.max(0, wProbs[2] - boost)];
-    if (stacked) {
-      notes.push(`⬆ Stacking raised ${floorsAboveWater} floor(s) above the flood line — wall damage risk reduced`);
-    } else {
-      notes.push('Foundation height kept walls above flood water — elevation benefit applied');
-    }
-  } else if (lvlIdx > 0) {
-    notes.push('⚠️ All wall sections below flood line — no elevation benefit this round');
-  }
-
-  // ── Ace Card Effects ─────────────────────────────────────────────────
-  if (aPlayed.includes('a1')) {
-    const li = Math.max(0, lvlIdx - 1);
-    fProbs = [...FDMG[fMat.id][li]];
-    wProbs = [...WDMG[wMat.id][li]];
-    rProbs = li === 2 ? [...RDMG[rMat.id]] : rProbs;
-    notes.push(`🛡️ Sandbag Wall: flood treated as Level ${li + 1} — all probabilities shifted`);
-  }
-  if (aPlayed.includes('a4')) {
-    fProbs = [100, 0, 0];
-    notes.push('🏗️ Foundation Shield: foundation fully protected this flood');
-  }
-  if (aPlayed.includes('a2')) {
-    wProbs = [...WDMG[wMat.id][0]];
-    notes.push('💧 Drainage Channel: walls assessed at Level 1 distribution');
-  }
-  if (aPlayed.includes('a3')) {
-    const tier = ['w1', 'w2', 'w3'];
-    const bi = Math.max(0, tier.indexOf(wMat.id) - 1);
-    wProbs = [...WDMG[tier[bi]][lvlIdx]];
-    const betterMat = MATS.wall.opts.find(o => o.id === tier[bi]);
-    notes.push(`🪵 Waterproof Coat: walls treated as ${betterMat.name}`);
-  }
-  if (aPlayed.includes('a6')) {
-    const tier = ['f1', 'f2', 'f3'];
-    const bi = Math.max(0, tier.indexOf(fMat.id) - 1);
-    fProbs = [...FDMG[tier[bi]][lvlIdx]];
-    const betterMat = MATS.foundation.opts.find(o => o.id === tier[bi]);
-    notes.push(`🏠 Elevated Platform: foundation treated as ${betterMat.name}`);
-  }
-
-  // ── Roll ─────────────────────────────────────────────────────────────
-  const fRoll = Math.floor(Math.random() * 100) + 1;
-  const wRoll = Math.floor(Math.random() * 100) + 1;
-  const rRoll = Math.floor(Math.random() * 100) + 1;
-
-  let fDmg = weightedRandom(fProbs);
-  let wDmg = weightedRandom(wProbs);
-  let rDmg = lvlIdx === 2 ? weightedRandom(rProbs) : 0;
-
-  // ── Cascade Logic ────────────────────────────────────────────────────
-  if (fDmg === 2) {
-    wDmg = 2;
-    notes.push('Foundation collapsed → walls also collapsed (structural cascade)');
-  } else if (fDmg === 1) {
-    // Weakened foundation shifts wall probability toward damage
-    const halfSafe = Math.floor(wProbs[0] * 0.5);
-    const shifted = [wProbs[0] - halfSafe, wProbs[1], wProbs[2] + halfSafe];
-    wDmg = weightedRandom(shifted);
-    notes.push('Weakened foundation shifted wall damage probability upward');
-  }
-
-  // ── Cause Narratives ─────────────────────────────────────────────────
-  causes.foundation = getCause('foundation', fMat.id, fDmg);
-  causes.wall       = getCause('wall', wMat.id, wDmg);
-  if (lvlIdx === 2) causes.roof = getCause('roof', rMat.id, rDmg);
-
-  let overall = Math.max(fDmg, wDmg, lvlIdx === 2 ? rDmg : 0);
-
-  // ── Emergency Repair ace (post-damage adjustment) ────────────────────
-  if (aPlayed.includes('a5') && overall > 0) {
-    overall = overall - 1;
-    notes.push('🔧 Emergency Repair: overall damage tier reduced by one');
-  }
-
-  return { fDmg, wDmg, rDmg, overall, rolls:{ f:fRoll, w:wRoll, r:rRoll }, notes, causes };
 }
 
-// ── Game Initialisation ───────────────────────────────────────────────────
-function newGame(names) {
-  const players = names.map((name, i) => ({
-    id: i,
-    name,
-    color: PLAYER_COLORS[i],
-    coins: 0,
-    // STARTER_COST gives each player coins equal to their free mud hut value,
-    // so the initial mud house doesn't consume their dice roll
-    savedCoins: STARTER_COST,
-    house: {
-      fCount: 1, wCount: 1, rCount: 1,
-      fMat: matById('f3'), wMat: matById('w3'), rMat: matById('r3'),
-      stacked: false,
-    },
-    aces: randomAces(),
-    damage: { fDmg:0, wDmg:0, rDmg:0, overall:0 },
-    playedAces: [],
-    roundLog: [],
-  }));
-  G = {
-    players,
-    round: 1,
-    phase: 'roll',
-    turnIdx: 0,
-    aceTurnIdx: 0,
-    pendingDmg: [],
-  };
-  undoStack = [];
+/* ------------------------------------------------
+VILLAGE GENERATION
+------------------------------------------------ */
+
+const plots=[]
+
+function generateVillage(count){
+
+for(let i=0;i<count;i++){
+
+let x,z,valid=false
+
+while(!valid){
+
+x=(Math.random()-0.5)*18
+z=(Math.random()-0.5)*18
+
+valid=plots.every(p=>Math.hypot(p.x-x,p.z-z)>4)
+
 }
 
-function randomAces() {
-  const pool = [...ACE_POOL];
-  const a = pool.splice(Math.floor(Math.random() * pool.length), 1)[0];
-  const b = pool.splice(Math.floor(Math.random() * pool.length), 1)[0];
-  return [a, b];
+plots.push({x,z,house:null})
+
+const marker = new THREE.Mesh(
+new THREE.CircleGeometry(1.2,32),
+new THREE.MeshBasicMaterial({color:0x2b4c7e})
+)
+
+marker.rotation.x=-Math.PI/2
+marker.position.set(x,0.05,z)
+
+scene.add(marker)
+
 }
 
-// ── Undo System ───────────────────────────────────────────────────────────
-function saveUndo(player) {
-  undoStack.push({ pid: player.id, house: JSON.parse(JSON.stringify(player.house)) });
-  if (undoStack.length > 40) undoStack.shift(); // keep last 40 states
 }
 
-// Returns true if undo succeeded
-function performUndo(player) {
-  for (let i = undoStack.length - 1; i >= 0; i--) {
-    if (undoStack[i].pid === player.id) {
-      player.house = JSON.parse(JSON.stringify(undoStack[i].house));
-      undoStack.splice(i, 1);
-      return true;
-    }
-  }
-  return false;
+generateVillage(6)
+
+/* ------------------------------------------------
+BUILDING SYSTEM
+------------------------------------------------ */
+
+function buildHouse(plot,data){
+
+if(plot.house) scene.remove(plot.house)
+
+const g = new THREE.Group()
+
+let y=0
+
+if(data.foundation){
+
+const f = new THREE.Mesh(
+new THREE.BoxGeometry(1.2,0.4,1.2),
+new THREE.MeshLambertMaterial({color:0x8d6e63})
+)
+
+f.position.y=0.2
+g.add(f)
+y+=0.4
+
 }
 
-function hasUndoFor(playerId) {
-  return undoStack.some(u => u.pid === playerId);
+if(data.wall){
+
+const w = new THREE.Mesh(
+new THREE.BoxGeometry(1.2,1.1,1.2),
+new THREE.MeshLambertMaterial({color:0xbdbdbd})
+)
+
+w.position.y=y+0.55
+g.add(w)
+y+=1.1
+
 }
 
-// ── Build Phase Helpers ───────────────────────────────────────────────────
+if(data.roof){
 
-// Compute how much of the house is "spent" from the player's coin pool
-function computeSpent(h) {
-  const rMult = h.stacked ? Math.min(h.rCount, 1) : h.rCount;
-  return (h.fMat ? h.fMat.cost * h.fCount : 0)
-       + (h.wMat ? h.wMat.cost * h.wCount : 0)
-       + (h.rMat ? h.rMat.cost * rMult    : 0);
+const r = new THREE.Mesh(
+new THREE.ConeGeometry(1,0.7,4),
+new THREE.MeshLambertMaterial({color:0xaa3333})
+)
+
+r.position.y=y+0.35
+g.add(r)
+
 }
 
-// True when house has a complete foundation → walls → roof
-function isHouseComplete(h) {
-  if (h.fCount === 0) return false;
-  if (h.wCount < h.fCount) return false;
-  const rTarget = h.stacked ? 1 : h.fCount;
-  if (h.rCount < rTarget) return false;
-  return true;
+g.position.set(plot.x,0,plot.z)
+
+scene.add(g)
+plot.house=g
+
 }
 
-// Place a single block; saves undo snapshot first
-// mode: 'side' (horizontal) | 'stack' (vertical)
-function placeBlock(player, cat, opt, mode) {
-  const h = player.house;
+/* ------------------------------------------------
+DRAG SYSTEM
+------------------------------------------------ */
 
-  // Compatibility check
-  const ic = getIncompat(cat, opt.id, h.fMat, h.wMat);
-  if (ic) { showToast('🚫 ' + ic); return; }
+let dragging=null
 
-  // Structural order check
-  if (cat === 'wall') {
-    if (h.fCount === 0) { showToast('🪨 Place a Foundation first!'); return; }
-    if (h.wCount >= (h.stacked ? Infinity : h.fCount)) {
-      showToast('Need more foundation blocks first!'); return;
-    }
-  }
-  if (cat === 'roof') {
-    if (h.wCount === 0) { showToast('🧱 Add walls first!'); return; }
-    const rMax = h.stacked ? 1 : h.wCount;
-    if (h.rCount >= rMax) {
-      showToast(h.stacked ? '✅ One roof covers the whole stacked house!' : '🧱 Add more walls first!');
-      return;
-    }
-  }
-  if (cat === 'foundation' && h.fCount >= MAX_ROOMS) { showToast('Max 5 rooms!'); return; }
+document.querySelectorAll(".mat").forEach(el=>{
 
-  // Switching material resets that layer and layers above
-  const cur = cat === 'foundation' ? h.fMat : cat === 'wall' ? h.wMat : h.rMat;
-  if (cur && cur.id !== opt.id) {
-    saveUndo(player);
-    if (cat === 'foundation') { h.fCount = 0; h.wCount = 0; h.rCount = 0; h.fMat = null; h.wMat = null; h.rMat = null; }
-    else if (cat === 'wall')  { h.wCount = 0; h.wMat = null; h.rCount = 0; h.rMat = null; }
-    else                       { h.rCount = 0; h.rMat = null; }
-    showToast('⚠ Material changed — drop again to place');
-    return;
-  }
+el.addEventListener("dragstart",()=>{
 
-  // Cost check
-  const projected = (() => {
-    const tmp = JSON.parse(JSON.stringify(h));
-    if (cat === 'foundation') { tmp.fMat = opt; tmp.fCount++; }
-    else if (cat === 'wall')  { tmp.wMat = opt; tmp.wCount++; }
-    else                       { tmp.rMat = opt; tmp.rCount++; }
-    return computeSpent(tmp);
-  })();
-  if (projected > player.coins) { showToast('🪙 Not enough coins!'); return; }
-
-  // Save undo BEFORE placing
-  saveUndo(player);
-
-  // Apply stacking mode when placing first wall
-  if (cat === 'wall' && mode === 'stack') h.stacked = true;
-  if (cat === 'wall' && mode === 'side')  h.stacked = false;
-
-  // Place
-  if (cat === 'foundation') { h.fMat = opt; h.fCount++; }
-  else if (cat === 'wall')  { h.wMat = opt; h.wCount++; }
-  else                       { h.rMat = opt; h.rCount++; }
+dragging={
+cat:el.dataset.cat,
+id:el.dataset.id
 }
 
-// Remove last block in a category
-function removeBlock(player, cat) {
-  const h = player.house;
-  if (cat === 'foundation') {
-    if (h.wCount > 0) { showToast('Remove walls first!'); return; }
-    saveUndo(player);
-    h.fCount = Math.max(0, h.fCount - 1);
-    if (h.fCount === 0) h.fMat = null;
-  } else if (cat === 'wall') {
-    const rMax = h.stacked ? 1 : h.wCount;
-    if (h.rCount >= (h.stacked ? 1 : h.wCount)) { showToast('Remove roof first!'); return; }
-    saveUndo(player);
-    h.wCount = Math.max(0, h.wCount - 1);
-    if (h.wCount === 0) h.wMat = null;
-  } else {
-    saveUndo(player);
-    h.rCount = Math.max(0, h.rCount - 1);
-    if (h.rCount === 0) h.rMat = null;
-  }
+})
+
+})
+
+/* ------------------------------------------------
+RAYCASTING
+------------------------------------------------ */
+
+const raycaster=new THREE.Raycaster()
+const mouse=new THREE.Vector2()
+
+renderer.domElement.addEventListener("mouseup",e=>{
+
+if(!dragging) return
+
+mouse.x=(e.clientX/window.innerWidth)*2-1
+mouse.y=-(e.clientY/window.innerHeight)*2+1
+
+raycaster.setFromCamera(mouse,camera)
+
+const plane=new THREE.Plane(new THREE.Vector3(0,1,0),0)
+const point=new THREE.Vector3()
+
+raycaster.ray.intersectPlane(plane,point)
+
+let best=null
+let dist=999
+
+plots.forEach(p=>{
+
+const d=Math.hypot(point.x-p.x,point.z-p.z)
+
+if(d<dist){
+dist=d
+best=p
 }
 
-// Repair a damaged component at half cost (round up)
-function repairComponent(player, cat) {
-  const h = player.house;
-  let mat;
-  if (cat === 'foundation') mat = h.fMat;
-  else if (cat === 'wall')  mat = h.wMat;
-  else                       mat = h.rMat;
-  if (!mat) { showToast('Nothing to repair!'); return; }
-  const repairCost = Math.ceil(mat.cost / 2);
-  const coinsLeft = player.coins - computeSpent(h);
-  if (coinsLeft < repairCost) { showToast(`🪙 Need ${repairCost} coins to repair — only ${coinsLeft} left`); return; }
-  // Repair is "free" once paid — mark component damage as 0 in next round context
-  // We store repairs as a flag the damage phase reads from
-  if (!player.repairs) player.repairs = {};
-  player.repairs[cat] = true;
-  player.coins -= repairCost; // deduct directly
-  showToast(`✅ ${cat} repaired for 🪙${repairCost}`);
+})
+
+if(best){
+
+if(!best.data)
+best.data={}
+
+best.data[dragging.cat]=dragging.id
+
+buildHouse(best,best.data)
+
 }
 
-// ── Round Transition Helpers ──────────────────────────────────────────────
+dragging=null
 
-// Called after damage is applied; resets collapsed players with free mud hut
-function applyNewRound() {
-  G.round++;
-  G.phase = 'roll';
-  G.turnIdx = 0;
-  G.aceTurnIdx = 0;
-  G.pendingDmg = [];
-  undoStack = [];
+})
 
-  G.players.forEach(p => {
-    if (p.damage.overall === 2) {
-      // Rebuild from scratch with free starter mud hut
-      p.house = {
-        fCount:1, wCount:1, rCount:1,
-        fMat: matById('f3'), wMat: matById('w3'), rMat: matById('r3'),
-        stacked: false,
-      };
-      p.damage = { fDmg:0, wDmg:0, rDmg:0, overall:0 };
-      p.savedCoins = STARTER_COST; // free restart with mud hut value
-    }
-    // Carry all remaining coins forward (no cap)
-    const spent = computeSpent(p.house);
-    p.savedCoins = Math.max(0, (p.savedCoins || 0) + (p.coins - spent));
-    p.coins = 0;
-    p.playedAces = [];
-    p.repairs = {};
-  });
+/* ------------------------------------------------
+FLOOD SYSTEM
+------------------------------------------------ */
+
+let water
+
+function startFlood(){
+
+if(water) scene.remove(water)
+
+const geo = new THREE.PlaneGeometry(80,80)
+
+const mat = new THREE.MeshPhongMaterial({
+color:0x1e5ed6,
+transparent:true,
+opacity:0.55
+})
+
+water = new THREE.Mesh(geo,mat)
+
+water.rotation.x=-Math.PI/2
+water.position.y=-0.2
+
+scene.add(water)
+
 }
 
-// ── PASTE part3_scene.js HERE ─────────────────────────────────────────────
-// ============================================================
-//  PART 3 — SCENE.JS
-//  Three.js scene: world, houses, flood water, visual damage
-//  Depends on: part1_data.js, part2_logic.js
-// ============================================================
+startFlood()
 
-function makeScene(canvas, W, H) {
-  const renderer = new THREE.WebGLRenderer({ canvas, antialias:true, alpha:false });
-  renderer.setSize(W, H, false);
-  renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
-  renderer.shadowMap.enabled = true;
+let floodHeight=0
+let flooding=true
 
-  const scene = new THREE.Scene();
-  scene.background = new THREE.Color(0x87ceeb);
-  scene.fog = new THREE.FogExp2(0x87ceeb, 0.02);
+function updateFlood(){
 
-  const cam = new THREE.PerspectiveCamera(40, W / H, 0.1, 200);
-  const sph = { th: Math.PI * 0.25, ph: Math.PI * 0.25, r: 14, tx: 0, ty: 1.5 };
+if(!flooding) return
 
-  const syncCam = () => {
-    cam.position.set(
-      sph.tx + sph.r * Math.sin(sph.ph) * Math.sin(sph.th),
-      sph.r * Math.cos(sph.ph) + sph.ty,
-      sph.r * Math.sin(sph.ph) * Math.cos(sph.th)
-    );
-    cam.lookAt(sph.tx, sph.ty, 0);
-  };
-  syncCam();
+floodHeight+=0.002
 
-  // Lights
-  scene.add(new THREE.AmbientLight(0xffffff, 0.75));
-  const sun = new THREE.DirectionalLight(0xfffbe0, 1.05);
-  sun.position.set(8, 14, 6);
-  sun.castShadow = true;
-  scene.add(sun);
+water.position.y=floodHeight
 
-  // Ground
-  const gnd = new THREE.Mesh(
-    new THREE.PlaneGeometry(100, 100),
-    new THREE.MeshLambertMaterial({ color: 0x6ab04c })
-  );
-  gnd.rotation.x = -Math.PI / 2;
-  gnd.receiveShadow = true;
-  scene.add(gnd);
+plots.forEach(p=>{
 
-  // Grid
-  const grid = new THREE.GridHelper(20, 20, 0x33691e, 0x558b2f);
-  grid.position.y = 0.003;
-  scene.add(grid);
+if(!p.house) return
 
-  // River bank + river
-  const bank = new THREE.Mesh(
-    new THREE.PlaneGeometry(100, 4),
-    new THREE.MeshLambertMaterial({ color: 0xd4a84b })
-  );
-  bank.rotation.x = -Math.PI / 2;
-  bank.position.set(0, 0.01, -9);
-  scene.add(bank);
+if(p.house.position.y < floodHeight){
 
-  const river = new THREE.Mesh(
-    new THREE.PlaneGeometry(100, 8),
-    new THREE.MeshLambertMaterial({ color: 0x1e88e5, transparent:true, opacity:0.88 })
-  );
-  river.rotation.x = -Math.PI / 2;
-  river.position.set(0, 0.02, -14);
-  scene.add(river);
+p.house.rotation.z += 0.01
 
-  const ripples = Array.from({ length: 9 }, (_, i) => {
-    const m = new THREE.Mesh(
-      new THREE.PlaneGeometry(0.055, 8),
-      new THREE.MeshBasicMaterial({ color:0xffffff, transparent:true, opacity:0.15 })
-    );
-    m.rotation.x = -Math.PI / 2;
-    m.position.set(-12 + i * 3, 0.025, -14);
-    scene.add(m);
-    return m;
-  });
-
-  // Trees (10 scattered around)
-  [[-7,4],[-9,1],[-8,-2],[8,4],[10,1],[9,-2],[-5,-5],[5,-5],[-11,4],[11,3]]
-  .forEach(([x, z]) => {
-    const trunk = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.08, 0.14, 1.0, 8),
-      new THREE.MeshLambertMaterial({ color: 0x5d4037 })
-    );
-    trunk.position.set(x, 0.5, z);
-    scene.add(trunk);
-    [[0.82,0.58,0,0,0x2e7d32],[0.56,0.65,0.28,0.12,0x388e3c],[0.5,0.62,-0.24,0.28,0x43a047]]
-    .forEach(([r, sy, dx, dz, col], j) => {
-      const leaf = new THREE.Mesh(
-        new THREE.SphereGeometry(r, 9, 7),
-        new THREE.MeshLambertMaterial({ color: col })
-      );
-      leaf.scale.set(1, sy, 1);
-      leaf.position.set(x + dx, [1.38, 1.68, 1.62][j], z + dz);
-      scene.add(leaf);
-    });
-  });
-
-  // Flood water (starts below ground)
-  const water = new THREE.Mesh(
-    new THREE.BoxGeometry(100, 1, 40),
-    new THREE.MeshLambertMaterial({ color:0x1565c0, transparent:true, opacity:0.52 })
-  );
-  water.position.y = -20;
-  scene.add(water);
-
-  const wSurf = new THREE.Mesh(
-    new THREE.PlaneGeometry(100, 40),
-    new THREE.MeshBasicMaterial({ color:0x42a5f5, transparent:true, opacity:0.38 })
-  );
-  wSurf.rotation.x = -Math.PI / 2;
-  wSurf.position.y = -20;
-  scene.add(wSurf);
-
-  return {
-    renderer, scene, cam, sph, syncCam,
-    water, wSurf, ripples,
-    plotMeshes: {},
-    autoRot: false,
-    floodY: 0, targetH: 0,
-    flooding: false,
-    onDone: null,
-    animFrame: null,
-  };
 }
 
-// ── Plot X position helper ────────────────────────────────────────────────
-function getPlotX(idx, total) {
-  return (idx - (total - 1) / 2) * 3.0;
+})
+
 }
 
-// ── Build / Rebuild one player's house ───────────────────────────────────
-function buildPlot(ts, player, plotX, damage) {
-  const pid = player.id;
+/* ------------------------------------------------
+CAMERA ORBIT
+------------------------------------------------ */
 
-  // Remove old meshes
-  if (ts.plotMeshes[pid]) {
-    ts.plotMeshes[pid].forEach(m => {
-      ts.scene.remove(m);
-      if (m.geometry) m.geometry.dispose();
-      if (m.material) m.material.dispose();
-    });
-  }
-  ts.plotMeshes[pid] = [];
+let angle=0
 
-  const h = player.house;
-  if (h.fCount === 0) return; // nothing to draw
+function animate(){
 
-  const dmg = damage || { fDmg:0, wDmg:0, rDmg:0 };
+requestAnimationFrame(animate)
 
-  // Color helpers
-  function applyDmgColor(baseHex, tier) {
-    if (tier === 2) return 0x2a2a2a;  // collapsed → dark grey
-    if (tier === 1) return 0x7a7a7a;  // damaged → medium grey
-    return baseHex;
-  }
+angle+=0.002
 
-  const fCol = applyDmgColor(h.fMat ? h.fMat.hex : 0xbcaaa4, dmg.fDmg);
-  const wCol = applyDmgColor(h.wMat ? h.wMat.hex : 0xa1887f, dmg.wDmg);
-  const rCol = applyDmgColor(h.rMat ? h.rMat.hex : 0xcddc39, dmg.rDmg);
+camera.position.x=Math.sin(angle)*18
+camera.position.z=Math.cos(angle)*18
+camera.lookAt(0,0,0)
 
-  const add = (geo, col, x, y, z, transparent, opacity) => {
-    const mat = new THREE.MeshLambertMaterial({ color: col });
-    if (transparent) { mat.transparent = true; mat.opacity = opacity || 0.12; }
-    const m = new THREE.Mesh(geo, mat);
-    m.position.set(plotX + x, y, z);
-    m.castShadow = m.receiveShadow = true;
-    ts.scene.add(m);
-    ts.plotMeshes[pid].push(m);
-    return m;
-  };
+updateFlood()
 
-  const addEdges = (geo, x, y, z, color, opacity) => {
-    const edges = new THREE.LineSegments(
-      new THREE.EdgesGeometry(geo),
-      new THREE.LineBasicMaterial({ color, transparent: true, opacity: opacity || 0.4 })
-    );
-    edges.position.set(plotX + x, y, z);
-    ts.scene.add(edges);
-    ts.plotMeshes[pid].push(edges);
-  };
+renderer.render(scene,camera)
 
-  const addGhost = (geo, x, y, z) => {
-    add(geo, 0x1976d2, x, y, z, true, 0.1);
-    addEdges(geo, x, y, z, 0x1976d2, 0.4);
-  };
-
-  // Crack indicator (yellow plane overlay for tier-1 damage)
-  const addCrack = (x, y, z) => {
-    const cg = new THREE.PlaneGeometry(0.7, 0.7);
-    const cm = new THREE.MeshBasicMaterial({ color:0xffca28, transparent:true, opacity:0.45, side:THREE.DoubleSide });
-    const c = new THREE.Mesh(cg, cm);
-    c.position.set(plotX + x, y, z + 0.52);
-    ts.scene.add(c);
-    ts.plotMeshes[pid].push(c);
-    // Second crack mark at 90°
-    const c2 = c.clone();
-    c2.rotation.y = Math.PI / 2;
-    c2.position.set(plotX + x + 0.52, y, z);
-    ts.scene.add(c2);
-    ts.plotMeshes[pid].push(c2);
-  };
-
-  const mkRoof = (ry, hw, cx, isGhost) => {
-    const hd = 0.55;
-    const v = new Float32Array([
-      -hw, ry,  hd,  hw, ry,  hd,  0, ry + PEAK,  hd,
-      -hw, ry, -hd,  hw, ry, -hd,  0, ry + PEAK, -hd,
-    ]);
-    const ix = [0,1,2, 3,5,4, 0,3,5, 0,5,2, 1,2,5, 1,5,4, 0,1,3, 1,4,3];
-    const geo = new THREE.BufferGeometry();
-    geo.setAttribute('position', new THREE.BufferAttribute(v, 3));
-    geo.setIndex(ix);
-    geo.computeVertexNormals();
-    const col = isGhost ? 0x1976d2 : rCol;
-    const mat = new THREE.MeshLambertMaterial({
-      color: col,
-      transparent: isGhost,
-      opacity: isGhost ? 0.12 : 1,
-      side: THREE.DoubleSide,
-    });
-    const m = new THREE.Mesh(geo, mat);
-    m.position.x = plotX + cx;
-    m.castShadow = true;
-    ts.scene.add(m);
-    ts.plotMeshes[pid].push(m);
-  };
-
-  // Player color disc under house
-  const disc = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.2, 0.2, 0.06, 12),
-    new THREE.MeshLambertMaterial({ color: parseInt(player.color.replace('#', '0x')) })
-  );
-  disc.position.set(plotX, 0.03, 0.7);
-  ts.scene.add(disc);
-  ts.plotMeshes[pid].push(disc);
-
-  if (!h.stacked) {
-    // ── HORIZONTAL (side-by-side) layout ────────────────────────────
-    const cx = i => -(h.fCount - 1) * 0.5 + i;
-
-    // Foundations
-    for (let i = 0; i < h.fCount; i++) {
-      add(new THREE.BoxGeometry(0.92, FH, 0.92), fCol, cx(i), FH / 2, 0);
-      if (dmg.fDmg === 1) addCrack(cx(i), FH * 0.5, 0);
-    }
-
-    // Walls
-    for (let i = 0; i < h.fCount; i++) {
-      if (i < h.wCount) {
-        add(new THREE.BoxGeometry(0.92, WH, 0.92), wCol, cx(i), FH + WH / 2, 0);
-        // Window
-        add(new THREE.BoxGeometry(0.2, 0.15, 0.04), 0x81d4fa, cx(i), FH + WH * 0.65, 0.47);
-        // Door (only first room)
-        if (i === 0) add(new THREE.BoxGeometry(0.22, 0.42, 0.04), 0x5d4037, cx(i), FH + 0.21, 0.47);
-        if (dmg.wDmg === 1) addCrack(cx(i), FH + WH * 0.5, 0);
-      } else {
-        addGhost(new THREE.BoxGeometry(0.92, WH, 0.92), cx(i), FH + WH / 2, 0);
-      }
-    }
-
-    // Roofs
-    for (let i = 0; i < h.fCount; i++) {
-      if (i < h.rCount)    mkRoof(FH + WH, 0.52, cx(i), false);
-      else if (i < h.wCount) mkRoof(FH + WH, 0.52, cx(i), true);
-    }
-
-  } else {
-    // ── STACKED (multi-floor) layout ─────────────────────────────────
-    const sw = 1.25;
-
-    add(new THREE.BoxGeometry(1.35, FH, 1.08), fCol, 0, FH / 2, 0);
-    if (dmg.fDmg === 1) addCrack(0, FH * 0.5, 0);
-
-    for (let fl = 0; fl < h.fCount; fl++) {
-      const base = FH + fl * WH;
-      // Floor slab between stories
-      if (fl > 0) add(new THREE.BoxGeometry(sw, 0.07, 1.0), fCol, 0, base, 0);
-
-      if (fl < h.wCount) {
-        add(new THREE.BoxGeometry(sw, WH, 1.0), wCol, 0, base + WH / 2, 0);
-        // Windows (both sides)
-        add(new THREE.BoxGeometry(0.2, 0.15, 0.04), 0x81d4fa,  0.18, base + WH * 0.65, 0.51);
-        add(new THREE.BoxGeometry(0.2, 0.15, 0.04), 0x81d4fa, -0.18, base + WH * 0.65, 0.51);
-        // Door (ground floor)
-        if (fl === 0) add(new THREE.BoxGeometry(0.22, 0.42, 0.04), 0x5d4037, 0, FH + 0.21, 0.51);
-        if (dmg.wDmg === 1) addCrack(0, base + WH * 0.5, 0);
-      } else {
-        addGhost(new THREE.BoxGeometry(sw, WH, 1.0), 0, base + WH / 2, 0);
-      }
-    }
-
-    const topY = FH + h.fCount * WH;
-    if (h.rCount > 0)       mkRoof(topY, sw / 2 + 0.05, 0, false);
-    else if (h.wCount > 0)  mkRoof(topY, sw / 2 + 0.05, 0, true);
-  }
 }
 
-// ── Camera focus helper ───────────────────────────────────────────────────
-function focusPlot(ts, plotX, totalPlayers, allPlayers) {
-  if (allPlayers) {
-    ts.sph.tx = 0;
-    ts.sph.r  = 8 + (totalPlayers - 1) * 2.4;
-    ts.sph.ph = Math.PI * 0.27;
-  } else {
-    ts.sph.tx = plotX;
-    ts.sph.r  = 7.5;
-    ts.sph.ph = Math.PI * 0.26;
-  }
-  ts.syncCam();
-}
-
-// ── Animation Loop ────────────────────────────────────────────────────────
-function startAnimLoop(ts) {
-  const animate = () => {
-    ts.animFrame = requestAnimationFrame(animate);
-    if (!ts) return;
-
-    // Auto-rotate
-    if (ts.autoRot) { ts.sph.th += 0.005; ts.syncCam(); }
-
-    // River ripples
-    ts.ripples.forEach(r => {
-      r.position.x += 0.03;
-      if (r.position.x > 13) r.position.x = -13;
-    });
-
-    // Flood rise animation
-    if (ts.flooding) {
-      ts.floodY = Math.min(ts.floodY + 0.012, ts.targetH);
-      ts.water.scale.y = Math.max(0.001, ts.floodY);
-      ts.water.position.y = ts.floodY / 2;
-      ts.wSurf.position.y = ts.floodY + 0.01;
-      ts.ripples.forEach(r => r.position.y = ts.floodY + 0.02);
-      if (ts.floodY >= ts.targetH) {
-        ts.flooding = false;
-        if (ts.onDone) ts.onDone();
-      }
-    }
-
-    ts.renderer.render(ts.scene, ts.cam);
-  };
-  animate();
-}
-
-// ── Reset flood water ─────────────────────────────────────────────────────
-function resetFlood(ts) {
-  ts.flooding = false;
-  ts.floodY   = 0;
-  ts.water.scale.y = 1;
-  ts.water.position.y = -20;
-  ts.wSurf.position.y = -20;
-  ts.ripples.forEach(r => r.position.y = 0.025);
-}
-
-// ── PASTE part4_ui.js HERE ────────────────────────────────────────────────
-// ============================================================
-//  PART 4 — UI.JS
-//  All screen rendering, phase UIs, drag-drop, toast system
-//  Depends on: part1_data.js, part2_logic.js, part3_scene.js
-// ============================================================
-
-// ── App State ─────────────────────────────────────────────────────────────
-let screen    = 'setup'; // 'setup' | 'game' | 'end'
-let tsRef     = null;    // Three.js scene ref
-let rafRef    = null;    // animation frame ref
-let canvasRef = null;    // canvas element ref
-let orb       = { on:false, lx:0, ly:0 }; // orbit drag state
-let dragging  = null;    // { cat, opt, mode } while drag is active
-
-// ── Toast System ─────────────────────────────────────────────────────────
-let _toastTimer = null;
-function showToast(msg) {
-  let el = document.getElementById('game-toast');
-  if (!el) return;
-  el.textContent = msg;
-  el.style.opacity = '1';
-  el.style.transform = 'translate(-50%, 0)';
-  if (_toastTimer) clearTimeout(_toastTimer);
-  _toastTimer = setTimeout(() => {
-    el.style.opacity = '0';
-    el.style.transform = 'translate(-50%, -8px)';
-  }, 2800);
-}
-
-// ── Setup State ───────────────────────────────────────────────────────────
-let setupNames = ['Player 1', 'Player 2'];
-
-// ── Master Render ─────────────────────────────────────────────────────────
-function render() {
-  const root = document.getElementById('root');
-  if (screen === 'setup')    { root.innerHTML = ''; root.appendChild(renderSetup()); }
-  else if (screen === 'game') { renderGame(); }
-  else                        { root.innerHTML = ''; root.appendChild(renderEnd()); }
-}
-
-// ─────────────────────────────────────────────────────────────────────────
-//  SETUP SCREEN
-// ─────────────────────────────────────────────────────────────────────────
-function renderSetup() {
-  const div = document.createElement('div');
-  div.className = 'screen setup-bg';
-  div.innerHTML = `
-    <div style="font-size:52px;text-align:center">🏠🌊</div>
-    <div class="setup-card">
-      <div class="setup-title">Flood House Builder</div>
-      <div class="setup-sub">2–6 players · 3 flood rounds · Everyone starts with a free mud hut</div>
-      <div id="player-list"></div>
-      ${setupNames.length < 6 ? `<button class="add-btn" id="add-player">+ Add player (max 6)</button>` : ''}
-      <button class="start-btn" id="start-game" ${setupNames.filter(n => n.trim()).length < 2 ? 'disabled' : ''}>
-        🚀 Start Game
-      </button>
-    </div>
-  `;
-  const list = div.querySelector('#player-list');
-  setupNames.forEach((name, i) => {
-    const row = document.createElement('div');
-    row.className = 'player-row';
-    row.innerHTML = `
-      <div class="player-avatar" style="background:${PLAYER_COLORS[i]}22;color:${PLAYER_COLORS[i]}">${i+1}</div>
-      <input class="player-input" placeholder="Player ${i+1}" value="${name}" data-idx="${i}"/>
-      ${setupNames.length > 2
-        ? `<button style="background:rgba(255,82,82,0.15);border:none;border-radius:6px;color:#ff5252;padding:6px 10px;font-size:11px" data-remove="${i}">✕</button>`
-        : ''}
-    `;
-    list.appendChild(row);
-  });
-
-  div.querySelector('#add-player')?.addEventListener('click', () => {
-    setupNames.push('Player ' + (setupNames.length + 1));
-    render();
-  });
-  div.querySelectorAll('.player-input').forEach(inp => {
-    inp.addEventListener('input', e => {
-      setupNames[+e.target.dataset.idx] = e.target.value;
-      div.querySelector('#start-game').disabled = setupNames.filter(n => n.trim()).length < 2;
-    });
-  });
-  div.querySelectorAll('[data-remove]').forEach(btn => {
-    btn.addEventListener('click', e => { setupNames.splice(+e.target.dataset.remove, 1); render(); });
-  });
-  div.querySelector('#start-game').addEventListener('click', () => {
-    const names = setupNames.filter(n => n.trim());
-    if (names.length < 2) return;
-    newGame(names);
-    screen = 'game';
-    render();
-    setTimeout(initScene, 80);
-  });
-  return div;
-}
-
-// ─────────────────────────────────────────────────────────────────────────
-//  SCENE INIT
-// ─────────────────────────────────────────────────────────────────────────
-function initScene() {
-  canvasRef = document.getElementById('game-canvas');
-  if (!canvasRef) return;
-  const W = canvasRef.clientWidth, H = canvasRef.clientHeight;
-  if (tsRef) { tsRef.renderer.dispose(); tsRef = null; }
-  tsRef = makeScene(canvasRef, W, H);
-
-  G.players.forEach((p, i) => buildPlot(tsRef, p, getPlotX(i, G.players.length), p.damage));
-  focusPlot(tsRef, getPlotX(0, G.players.length), G.players.length, false);
-
-  // Orbit mouse control
-  canvasRef.addEventListener('mousedown', e => { orb = { on:true, lx:e.clientX, ly:e.clientY }; });
-  window.addEventListener('mousemove', e => {
-    if (!orb.on || !tsRef) return;
-    tsRef.sph.th -= (e.clientX - orb.lx) * 0.007;
-    tsRef.sph.ph = Math.max(0.08, Math.min(1.45, tsRef.sph.ph + (e.clientY - orb.ly) * 0.007));
-    tsRef.syncCam();
-    orb = { on:true, lx:e.clientX, ly:e.clientY };
-  });
-  window.addEventListener('mouseup', () => { orb.on = false; });
-
-  startAnimLoop(tsRef);
-}
-
-// ─────────────────────────────────────────────────────────────────────────
-//  GAME SCREEN SHELL
-// ─────────────────────────────────────────────────────────────────────────
-function renderGame() {
-  const root = document.getElementById('root');
-  if (!root.querySelector('.game-screen')) {
-    root.innerHTML = '';
-    root.appendChild(buildGameShell());
-  }
-  updateGameUI();
-}
-
-function buildGameShell() {
-  const div = document.createElement('div');
-  div.className = 'screen game-screen';
-  div.innerHTML = `
-    <div class="left-panel">
-      <div class="topbar" id="topbar"></div>
-      <div class="canvas-wrap" id="canvas-wrap">
-        <canvas id="game-canvas"></canvas>
-        <button class="orbit-btn" id="orbit-btn">🔄 Orbit</button>
-        <div class="flood-label" id="flood-label">🌊 Flood rising...</div>
-        <div class="overlay-hint" id="canvas-hint"></div>
-        <div id="game-toast" style="
-          position:absolute;bottom:16px;left:50%;transform:translate(-50%,0);
-          background:rgba(10,16,40,0.95);color:#fff;border-radius:12px;
-          padding:9px 20px;font-size:12px;font-weight:700;pointer-events:none;
-          max-width:320px;text-align:center;z-index:20;
-          transition:opacity 0.3s,transform 0.3s;opacity:0;
-        "></div>
-      </div>
-    </div>
-    <div class="right-panel">
-      <div class="rp-header" id="rp-header"></div>
-      <div class="rp-scroll" id="rp-scroll"></div>
-    </div>
-  `;
-  div.querySelector('#orbit-btn').onclick = () => {
-    if (!tsRef) return;
-    tsRef.autoRot = !tsRef.autoRot;
-    div.querySelector('#orbit-btn').textContent = tsRef.autoRot ? '⏹ Stop' : '🔄 Orbit';
-  };
-  return div;
-}
-
-// ── Main UI dispatcher ────────────────────────────────────────────────────
-function updateGameUI() {
-  const p   = G.players[G.turnIdx];
-  const lvl = LEVELS[G.round - 1];
-
-  // ── Topbar ──────────────────────────────────────────────────────────
-  const tb = document.getElementById('topbar');
-  if (tb) {
-    tb.innerHTML = `
-      <div class="level-badge" style="background:${lvl.color}">${lvl.emoji} Round ${G.round}/3</div>
-      <div class="player-tabs" id="ptabs"></div>
-      <button onclick="goHome()" style="background:rgba(255,255,255,0.1);border:none;border-radius:8px;color:#fff;padding:5px 10px;font-size:11px;cursor:pointer">🏠 Home</button>
-    `;
-    const tabs = document.getElementById('ptabs');
-    G.players.forEach((pl, i) => {
-      const t = document.createElement('button');
-      t.className = 'ptab' + (i === G.turnIdx ? ' active' : '');
-      t.style.borderBottom = i === G.turnIdx ? `2px solid ${pl.color}` : '2px solid transparent';
-      t.style.color        = i === G.turnIdx ? pl.color : 'rgba(255,255,255,0.4)';
-      const dmgIcon = pl.damage.overall === 2 ? ' ☠️' : pl.damage.overall === 1 ? ' 🔧' : '';
-      t.textContent = pl.name + dmgIcon;
-      t.onclick = () => {
-        if (tsRef) focusPlot(tsRef, getPlotX(i, G.players.length), G.players.length, false);
-      };
-      tabs.appendChild(t);
-    });
-  }
-
-  // ── Canvas hint ─────────────────────────────────────────────────────
-  const hint = document.getElementById('canvas-hint');
-  if (hint) {
-    if (G.phase === 'build') hint.textContent = '🖱 Drag material cards to drop zones · drag scene to orbit';
-    else if (G.phase === 'flood') hint.textContent = '🌊 Flood rising — watch the 3D view';
-    else hint.textContent = 'Click player names to focus camera';
-  }
-
-  // ── Right panel header ───────────────────────────────────────────────
-  const rph = document.getElementById('rp-header');
-  const rps = document.getElementById('rp-scroll');
-  if (!rph || !rps) return;
-
-  const phaseLabel = {
-    roll:    'Dice Roll',
-    build:   'Build Phase',
-    flood:   'Flood Simulation',
-    aceplay: 'Ace Cards',
-    damage:  'Damage Reveal',
-    result:  'Round Summary',
-  };
-  const allPhases = ['flood','aceplay','damage','result'];
-  rph.innerHTML = `
-    <div class="rp-phase">Round ${G.round} · ${phaseLabel[G.phase] || ''}</div>
-    <div class="rp-title">${allPhases.includes(G.phase) ? 'All Players' : p.name + "'s Turn"}</div>
-  `;
-  rps.innerHTML = '';
-
-  if      (G.phase === 'roll')    renderRollPhase(rps, p);
-  else if (G.phase === 'build')   renderBuildPhase(rps, p);
-  else if (G.phase === 'flood')   renderFloodPhase(rps);
-  else if (G.phase === 'aceplay') renderAcePhase(rps);
-  else if (G.phase === 'damage')  renderDamagePhase(rps);
-  else if (G.phase === 'result')  renderResultPhase(rps);
-}
-
-// ─────────────────────────────────────────────────────────────────────────
-//  ROLL PHASE
-// ─────────────────────────────────────────────────────────────────────────
-function renderRollPhase(container, p) {
-  const d = document.createElement('div');
-  d.innerHTML = `
-    <div class="stats-row">
-      <div class="stat-box">
-        <div class="stat-label">Saved Coins</div>
-        <div class="stat-val" style="color:#f9a825">🪙${p.savedCoins}</div>
-      </div>
-      <div class="stat-box">
-        <div class="stat-label">House Status</div>
-        <div class="stat-val" style="color:${DMG_COLORS[p.damage.overall]}">
-          ${p.damage.overall === 0 ? '✅ Safe' : p.damage.overall === 1 ? '🔧 Damaged' : '☠️ Collapsed'}
-        </div>
-      </div>
-    </div>
-    ${G.round === 1 ? `<div style="background:rgba(105,240,174,0.07);border:1px solid rgba(105,240,174,0.2);border-radius:9px;padding:8px 11px;font-size:11px;color:#69f0ae;margin-bottom:10px">🏠 You start with a free mud hut! Roll dice to earn coins for upgrades.</div>` : ''}
-    <div class="dice-area">
-      <div style="color:rgba(255,255,255,0.55);font-size:12px;margin-bottom:6px">${p.name} — roll to earn coins for this round</div>
-      <div class="dice-faces"><div class="die" id="die1">?</div><div class="die" id="die2">?</div></div>
-      <div id="dice-result" style="color:rgba(255,255,255,0.6);font-size:13px;min-height:22px;margin-bottom:10px"></div>
-      <button class="roll-btn" id="roll-btn">🎲 Roll Dice!</button>
-    </div>
-    <div class="ace-section">
-      <div class="ace-title">🃏 Your Ace Cards (play during flood phase)</div>
-      <div class="ace-cards">
-        ${p.aces.map(a => `<div class="acard ${a.used ? 'used' : ''}"><span>${a.emoji}</span><span style="font-size:9px">${a.name} — ${a.desc}</span></div>`).join('')}
-      </div>
-    </div>
-  `;
-  container.appendChild(d);
-
-  let rolled = false;
-  d.querySelector('#roll-btn').onclick = () => {
-    if (rolled) return;
-    const faces = ['⚀','⚁','⚂','⚃','⚄','⚅'];
-    let count = 0;
-    const iv = setInterval(() => {
-      document.getElementById('die1').textContent = faces[Math.floor(Math.random() * 6)];
-      document.getElementById('die2').textContent = faces[Math.floor(Math.random() * 6)];
-      count++;
-      if (count > 14) {
-        clearInterval(iv);
-        const v1 = Math.floor(Math.random() * 6) + 1;
-        const v2 = Math.floor(Math.random() * 6) + 1;
-        document.getElementById('die1').textContent = faces[v1 - 1];
-        document.getElementById('die2').textContent = faces[v2 - 1];
-        ['die1','die2'].forEach(id => document.getElementById(id).classList.add('rolling'));
-        const total = v1 + v2;
-        p.coins = p.savedCoins + total;
-        document.getElementById('dice-result').innerHTML =
-          `<span style="color:#f9a825;font-weight:700">${v1} + ${v2} = ${total} new coins</span>` +
-          ` + <span style="color:rgba(255,255,255,0.5)">🪙${p.savedCoins} saved</span>` +
-          ` = <span style="color:#69f0ae;font-weight:700">🪙${p.coins} total</span>`;
-        rolled = true;
-        const btn = d.querySelector('#roll-btn');
-        btn.textContent = '➡ Start Building';
-        btn.style.background = 'linear-gradient(135deg,#1565c0,#1976d2)';
-        btn.onclick = () => {
-          G.phase = 'build';
-          if (tsRef) focusPlot(tsRef, getPlotX(G.turnIdx, G.players.length), G.players.length, false);
-          updateGameUI();
-        };
-      }
-    }, 55);
-  };
-}
-
-// ─────────────────────────────────────────────────────────────────────────
-//  BUILD PHASE
-// ─────────────────────────────────────────────────────────────────────────
-function renderBuildPhase(container, p) {
-  const h    = p.house;
-  const spent = computeSpent(h);
-  const left  = p.coins - spent;
-  const complete = isHouseComplete(h);
-  const rTarget  = h.stacked ? 1 : h.fCount;
-
-  // ── Coin summary ─────────────────────────────────────────────────────
-  const stats = document.createElement('div');
-  stats.innerHTML = `
-    <div class="stats-row">
-      <div class="stat-box"><div class="stat-label">Budget</div><div class="stat-val" style="color:#f9a825">🪙${p.coins}</div></div>
-      <div class="stat-box"><div class="stat-label">Spent</div><div class="stat-val" style="color:#ff7043">🪙${spent}</div></div>
-      <div class="stat-box"><div class="stat-label">Remaining</div><div class="stat-val" style="color:${left < 0 ? '#ff5252' : '#69f0ae'}">🪙${left}</div></div>
-    </div>
-  `;
-  container.appendChild(stats);
-
-  // ── Undo / Redo bar ──────────────────────────────────────────────────
-  const undoBar = document.createElement('div');
-  undoBar.style.cssText = 'display:flex;gap:6px;margin-bottom:8px;align-items:center';
-  const hasUndo = hasUndoFor(p.id);
-  undoBar.innerHTML = `
-    <button id="undo-btn" style="
-      padding:5px 12px;border-radius:8px;border:none;font-size:11px;font-weight:700;cursor:pointer;
-      background:${hasUndo ? 'rgba(41,182,246,0.15)' : 'rgba(255,255,255,0.05)'};
-      color:${hasUndo ? '#29b6f6' : 'rgba(255,255,255,0.2)'};
-    " ${hasUndo ? '' : 'disabled'}>↩ Undo last step</button>
-    <span style="font-size:9px;color:rgba(255,255,255,0.3)">Accidental click? Undo it.</span>
-  `;
-  container.appendChild(undoBar);
-  undoBar.querySelector('#undo-btn').onclick = () => {
-    if (performUndo(p)) {
-      if (tsRef) buildPlot(tsRef, p, getPlotX(G.turnIdx, G.players.length), { fDmg:0, wDmg:0, rDmg:0 });
-      updateGameUI();
-    }
-  };
-
-  // ── Build status strip ────────────────────────────────────────────────
-  const bstrip = document.createElement('div');
-  bstrip.className = 'build-strip';
-  [
-    { cat:'foundation', mat:h.fMat, count:h.fCount, target:h.fCount||1, label:'Foundation', col:'#78909c' },
-    { cat:'wall',       mat:h.wMat, count:h.wCount, target:h.fCount,    label:'Walls',      col:'#e57373' },
-    { cat:'roof',       mat:h.rMat, count:h.rCount, target:rTarget,     label:'Roof',       col:'#9c27b0' },
-  ].forEach(({ cat, mat, count, target, label, col }) => {
-    const done    = count > 0 && count >= target;
-    const partial = count > 0 && count < target;
-    const box     = document.createElement('div');
-    box.className = 'bsbox';
-    box.style.background   = done ? 'rgba(105,240,174,0.07)' : partial ? 'rgba(255,193,7,0.07)' : 'rgba(255,255,255,0.04)';
-    box.style.borderColor  = done ? 'rgba(105,240,174,0.35)' : partial ? 'rgba(255,193,7,0.35)' : 'rgba(255,255,255,0.1)';
-    box.innerHTML = `
-      <div class="bslabel" style="color:${col}">${label}</div>
-      <div class="bsval">${mat ? mat.name.split(' ')[0] : '—'}${count > 0 ? ' ×' + count : ''}</div>
-      <div class="bshint" style="color:${done ? '#69f0ae' : partial ? '#ffca28' : 'rgba(255,255,255,0.35)'}">
-        ${done ? '✓ Done' : partial ? '+' + (target - count) + ' more' : 'drag below'}
-      </div>
-    `;
-    if (count > 0) {
-      const rb = document.createElement('button');
-      rb.className = 'rem-btn';
-      rb.textContent = '−';
-      rb.onclick = () => { removeBlock(p, cat); if (tsRef) buildPlot(tsRef, p, getPlotX(G.turnIdx, G.players.length), { fDmg:0, wDmg:0, rDmg:0 }); updateGameUI(); };
-      box.appendChild(rb);
-    }
-    bstrip.appendChild(box);
-  });
-  container.appendChild(bstrip);
-
-  // ── Repair panel (shown when player has prior damage) ─────────────────
-  if (G.round > 1 && p.damage.overall > 0) {
-    const rp = document.createElement('div');
-    rp.style.cssText = 'background:rgba(255,193,7,0.07);border:1px solid rgba(255,193,7,0.22);border-radius:10px;padding:10px 11px;margin-bottom:8px';
-    rp.innerHTML = `
-      <div style="font-size:10px;font-weight:700;color:#ffca28;margin-bottom:6px">🔧 Repair Options (half cost)</div>
-      <div style="display:flex;gap:5px;flex-wrap:wrap">
-        ${p.damage.fDmg > 0 && h.fMat ? `<button class="repair-btn" data-cat="foundation" style="padding:5px 9px;border-radius:7px;border:none;background:rgba(255,193,7,0.12);color:#ffca28;font-size:10px;cursor:pointer">🪨 Foundation 🪙${Math.ceil(h.fMat.cost/2)}</button>` : ''}
-        ${p.damage.wDmg > 0 && h.wMat ? `<button class="repair-btn" data-cat="wall"       style="padding:5px 9px;border-radius:7px;border:none;background:rgba(255,193,7,0.12);color:#ffca28;font-size:10px;cursor:pointer">🧱 Walls 🪙${Math.ceil(h.wMat.cost/2)}</button>` : ''}
-        ${p.damage.rDmg > 0 && h.rMat ? `<button class="repair-btn" data-cat="roof"       style="padding:5px 9px;border-radius:7px;border:none;background:rgba(255,193,7,0.12);color:#ffca28;font-size:10px;cursor:pointer">🏠 Roof 🪙${Math.ceil(h.rMat.cost/2)}</button>` : ''}
-      </div>
-    `;
-    rp.querySelectorAll('.repair-btn').forEach(btn => {
-      btn.onclick = () => { repairComponent(p, btn.dataset.cat); updateGameUI(); };
-    });
-    container.appendChild(rp);
-  }
-
-  // ── Stacking note / flood height indicator ────────────────────────────
-  const lvl = LEVELS[G.round - 1];
-  const stackNote = document.createElement('div');
-  stackNote.style.cssText = 'background:rgba(41,182,246,0.06);border:1px solid rgba(41,182,246,0.15);border-radius:9px;padding:8px 11px;margin-bottom:8px;font-size:10px;color:rgba(255,255,255,0.55)';
-  stackNote.innerHTML = `${lvl.emoji} <strong style="color:#29b6f6">Flood level ${G.round}</strong> will rise to <strong>${lvl.floodH}m</strong>. ${h.stacked ? '⬆ Stacked layout keeps upper floors dry.' : 'Drop walls on <em>⬆ Stack floor</em> zone to lift above water.'}`;
-  container.appendChild(stackNote);
-
-  // ── Material sections ─────────────────────────────────────────────────
-  ['foundation', 'wall', 'roof'].forEach(cat => {
-    const data  = MATS[cat];
-    const curMat = cat === 'foundation' ? h.fMat : cat === 'wall' ? h.wMat : h.rMat;
-    const sec   = document.createElement('div');
-    sec.className = 'mat-section';
-    sec.innerHTML = `
-      <div class="mat-title">
-        <span>${data.emoji}</span><span>${data.label}</span>
-        <span style="font-size:8px;color:rgba(255,255,255,0.28);margin-left:4px">drag card to a drop zone below</span>
-      </div>
-      <div class="mat-cards" id="mcards-${cat}"></div>
-    `;
-    container.appendChild(sec);
-
-    // Material cards
-    const mc = sec.querySelector('#mcards-' + cat);
-    data.opts.forEach(opt => {
-      const ic     = getIncompat(cat, opt.id, h.fMat, h.wMat);
-      const isSel  = curMat && curMat.id === opt.id;
-      const noAfford = left < opt.cost;
-      const card   = document.createElement('div');
-      card.className = 'mcard';
-      card.style.background   = isSel  ? opt.col   : 'rgba(255,255,255,0.03)';
-      card.style.borderColor  = isSel  ? opt.border : ic ? 'rgba(255,82,82,0.3)' : 'rgba(255,255,255,0.1)';
-      card.style.opacity      = (ic || (!isSel && noAfford)) ? '0.4' : '1';
-      card.style.cursor       = (ic || (!isSel && noAfford)) ? 'not-allowed' : 'grab';
-      card.innerHTML = `
-        <div class="mc-emoji">${opt.emoji}</div>
-        <div class="mc-name">${opt.name}</div>
-        <div class="mc-stats"><span class="mc-pill" style="background:rgba(249,168,37,0.15);color:#f9a825">🪙${opt.cost}</span></div>
-        ${ic ? '<span class="mc-badge incompat-badge" title="' + ic + '">🚫</span>' : isSel ? '<span class="mc-badge sel-badge">✓</span>' : ''}
-      `;
-      if (!ic && (!noAfford || isSel)) {
-        card.draggable = true;
-        card.addEventListener('dragstart', e => {
-          dragging = { cat, opt };
-          e.dataTransfer.setData('text/plain', JSON.stringify({ cat, optId: opt.id }));
-          // Highlight drop zones
-          document.querySelectorAll('.drop-zone').forEach(z => z.classList.add('dz-hint'));
-        });
-        card.addEventListener('dragend', () => {
-          dragging = null;
-          document.querySelectorAll('.drop-zone').forEach(z => z.classList.remove('dz-hint', 'active-dz'));
-        });
-        // Click also places (defaults to side for foundation/roof, shows pick for wall)
-        card.addEventListener('click', () => {
-          const mode = cat === 'wall' ? (h.stacked ? 'stack' : 'side') : 'side';
-          placeBlock(p, cat, opt, mode);
-          if (tsRef) buildPlot(tsRef, p, getPlotX(G.turnIdx, G.players.length), { fDmg:0, wDmg:0, rDmg:0 });
-          updateGameUI();
-        });
-      } else if (ic) {
-        card.addEventListener('click', () => showToast('🚫 ' + ic));
-      }
-      mc.appendChild(card);
-    });
-
-    // ── Drop Zones ────────────────────────────────────────────────────
-    // For walls: show BOTH zones to make the stacking choice unmissable
-    const dzRow = document.createElement('div');
-    dzRow.className = 'drop-zone-row';
-
-    if (cat === 'wall') {
-      // Side-by-side zone
-      const dzSide = document.createElement('div');
-      dzSide.className = 'drop-zone dz-side';
-      dzSide.innerHTML = '⬅ <strong>Add Room</strong> (side by side)';
-      hookDropZone(dzSide, p, cat, 'side');
-      dzRow.appendChild(dzSide);
-
-      // Stack zone
-      const dzStack = document.createElement('div');
-      dzStack.className = 'drop-zone dz-stack';
-      dzStack.innerHTML = '⬆ <strong>Stack Floor</strong> (above current)';
-      hookDropZone(dzStack, p, cat, 'stack');
-      dzRow.appendChild(dzStack);
-
-    } else {
-      // Single zone for foundation + roof
-      const dz = document.createElement('div');
-      dz.className = 'drop-zone';
-      dz.textContent = cat === 'foundation' ? '⬅ Drop to add room →' : '⬆ Drop roof here';
-      hookDropZone(dz, p, cat, 'side');
-      dzRow.appendChild(dz);
-    }
-    sec.appendChild(dzRow);
-  });
-
-  // ── Ace cards display ─────────────────────────────────────────────────
-  const ace = document.createElement('div');
-  ace.className = 'ace-section';
-  ace.innerHTML = `
-    <div class="ace-title">🃏 Your Ace Cards (play during flood phase)</div>
-    <div class="ace-cards">
-      ${p.aces.map(a => `
-        <div class="acard ${a.used ? 'used' : ''}">
-          <span>${a.emoji}</span>
-          <div><div style="font-weight:700">${a.name}</div><div style="font-size:9px;opacity:0.7">${a.desc}</div></div>
-        </div>
-      `).join('')}
-    </div>
-  `;
-  container.appendChild(ace);
-
-  // ── Confirm build button ──────────────────────────────────────────────
-  const btn = document.createElement('button');
-  btn.className = 'action-btn ' + (complete ? 'primary' : 'disabled');
-  if (!complete) {
-    if (h.fCount === 0)              btn.textContent = '⬆ Drop a Foundation first';
-    else if (h.wCount < h.fCount)    btn.textContent = `Add ${h.fCount - h.wCount} more wall block(s)`;
-    else                             btn.textContent = `Add ${rTarget - h.rCount} more roof block(s)`;
-  } else {
-    btn.textContent = '✅ Confirm Build — Next Player';
-  }
-  btn.onclick = () => {
-    if (!complete) return;
-    const spent2 = computeSpent(p.house);
-    p.savedCoins = Math.max(0, p.coins - spent2);
-    p.coins = 0;
-    G.turnIdx++;
-    if (G.turnIdx >= G.players.length) {
-      G.phase = 'flood';
-      G.turnIdx = 0;
-      startFlood();
-    } else {
-      G.phase = 'roll';
-      if (tsRef) focusPlot(tsRef, getPlotX(G.turnIdx, G.players.length), G.players.length, false);
-    }
-    updateGameUI();
-  };
-  container.appendChild(btn);
-}
-
-// Helper: attach drag-and-drop events to a drop zone element
-function hookDropZone(el, player, cat, mode) {
-  el.addEventListener('dragover',  e => { e.preventDefault(); el.classList.add('active-dz'); });
-  el.addEventListener('dragleave', ()  => el.classList.remove('active-dz'));
-  el.addEventListener('drop', e => {
-    e.preventDefault();
-    el.classList.remove('active-dz', 'dz-hint');
-    if (!dragging || dragging.cat !== cat) { showToast('Drop a ' + MATS[cat].label + ' card here!'); return; }
-    placeBlock(player, cat, dragging.opt, mode);
-    dragging = null;
-    if (tsRef) buildPlot(tsRef, player, getPlotX(G.turnIdx, G.players.length), { fDmg:0, wDmg:0, rDmg:0 });
-    updateGameUI();
-  });
-}
-
-// ─────────────────────────────────────────────────────────────────────────
-//  FLOOD PHASE  (triggers 3D animation, then moves to ace phase)
-// ─────────────────────────────────────────────────────────────────────────
-function startFlood() {
-  if (!tsRef) return;
-  const lvl = LEVELS[G.round - 1];
-  focusPlot(tsRef, 0, G.players.length, true);
-  const fl = document.getElementById('flood-label');
-  if (fl) fl.style.display = 'block';
-  tsRef.floodY = 0;
-  tsRef.targetH = lvl.floodH;
-  tsRef.flooding = true;
-  tsRef.ripples.forEach(r => r.position.y = 0.025);
-  tsRef.onDone = () => {
-    const fl2 = document.getElementById('flood-label');
-    if (fl2) fl2.style.display = 'none';
-    G.phase = 'aceplay';
-    G.aceTurnIdx = 0;
-    G.players.forEach(p => { p.playedAces = []; });
-    updateGameUI();
-  };
-}
-
-function renderFloodPhase(container) {
-  container.innerHTML = `
-    <div style="text-align:center;padding:30px 16px;color:rgba(255,255,255,0.6);font-size:14px">
-      🌊 Flood simulation running…<br>
-      <span style="font-size:11px;color:rgba(255,255,255,0.3)">Watch the 3D view</span>
-    </div>`;
-}
-
-// ─────────────────────────────────────────────────────────────────────────
-//  ACE CARD PHASE  (one player at a time in fixed turn order)
-// ─────────────────────────────────────────────────────────────────────────
-function renderAcePhase(container) {
-  const p = G.players[G.aceTurnIdx];
-
-  const div = document.createElement('div');
-  div.innerHTML = `
-    <div style="background:rgba(249,168,37,0.08);border:1px solid rgba(249,168,37,0.2);border-radius:9px;padding:9px 11px;margin-bottom:10px;font-size:11px;color:rgba(255,255,255,0.6)">
-      Each player may play one Ace Card before damage is calculated. Cards shift your damage probability.
-      Player <strong style="color:${p.color}">${p.name}</strong> goes first.
-    </div>
-    <div style="font-size:12px;font-weight:700;color:${p.color};margin-bottom:8px">${p.name}'s Ace Cards:</div>
-    <div id="ace-play-area"></div>
-    <div style="font-size:10px;color:rgba(255,255,255,0.3);margin:6px 0">Click a card to toggle it. It will be played when you press Next.</div>
-  `;
-  container.appendChild(div);
-
-  const refreshAceArea = () => {
-    const area = document.getElementById('ace-play-area');
-    if (!area) return;
-    area.innerHTML = '';
-    const usable = p.aces.filter(a => !a.used);
-    if (usable.length === 0) {
-      area.innerHTML = '<div style="color:rgba(255,255,255,0.3);font-size:11px">No Ace Cards remaining</div>';
-    } else {
-      usable.forEach(a => {
-        const btn = document.createElement('div');
-        const isPlayed = p.playedAces.includes(a.id);
-        btn.className = 'acard' + (isPlayed ? ' played' : '');
-        btn.innerHTML = `<span>${a.emoji}</span><div><div style="font-size:10px;font-weight:700">${a.name}</div><div style="font-size:9px;opacity:0.7">${a.desc}</div></div>`;
-        btn.onclick = () => {
-          p.playedAces = isPlayed
-            ? p.playedAces.filter(x => x !== a.id)
-            : [...p.playedAces, a.id];
-          refreshAceArea();
-        };
-        area.appendChild(btn);
-      });
-    }
-  };
-  refreshAceArea();
-
-  const nextBtn = document.createElement('button');
-  nextBtn.className = 'action-btn primary';
-  nextBtn.style.marginTop = '10px';
-  nextBtn.textContent = G.aceTurnIdx < G.players.length - 1
-    ? `➡ Next: ${G.players[G.aceTurnIdx + 1].name}`
-    : '💥 Calculate Damage';
-  nextBtn.onclick = () => {
-    // Mark played aces as used
-    p.playedAces.forEach(aid => {
-      const a = p.aces.find(x => x.id === aid);
-      if (a) a.used = true;
-    });
-    G.aceTurnIdx++;
-    if (G.aceTurnIdx >= G.players.length) {
-      // All aces played — roll damage for everyone
-      G.pendingDmg = G.players.map(pl => ({
-        player: pl,
-        result: rollDamage(pl, G.round - 1, pl.playedAces),
-      }));
-      G.phase = 'damage';
-    }
-    updateGameUI();
-  };
-  container.appendChild(nextBtn);
-}
-
-// ─────────────────────────────────────────────────────────────────────────
-//  DAMAGE REVEAL  (shows rolls, tiers, and cause narratives)
-// ─────────────────────────────────────────────────────────────────────────
-function renderDamagePhase(container) {
-  const lvl = LEVELS[G.round - 1];
-
-  const intro = document.createElement('div');
-  intro.style.cssText = 'font-size:12px;color:rgba(255,255,255,0.5);margin-bottom:10px';
-  intro.textContent = `${lvl.emoji} ${lvl.name} — damage results for all players:`;
-  container.appendChild(intro);
-
-  G.pendingDmg.forEach(({ player: pl, result: res }) => {
-    const card = document.createElement('div');
-    card.className = 'dmg-card';
-    card.style.borderColor = DMG_COLORS[res.overall];
-
-    const rows = [
-      { label: `Foundation (${pl.house.fMat ? pl.house.fMat.name : '?'})`, tier: res.fDmg, roll: res.rolls.f, cause: res.causes.foundation },
-      { label: `Walls (${pl.house.wMat ? pl.house.wMat.name : '?'})`,      tier: res.wDmg, roll: res.rolls.w, cause: res.causes.wall },
-      ...(G.round === 3 ? [{ label: `Roof (${pl.house.rMat ? pl.house.rMat.name : '?'})`, tier: res.rDmg, roll: res.rolls.r, cause: res.causes.roof }] : []),
-    ];
-
-    card.innerHTML = `
-      <div class="dmg-player" style="color:${pl.color}">
-        ${pl.name}
-        <span class="dpill dpill-${res.overall}">${DMG_LABELS[res.overall]}</span>
-        ${pl.playedAces.length > 0 ? '<span style="font-size:9px;color:#f9a825;margin-left:4px">🃏 ' + pl.playedAces.map(id => ACE_POOL.find(a => a.id === id)?.emoji || '').join('') + '</span>' : ''}
-      </div>
-      ${rows.map(r => `
-        <div class="dmg-row">
-          <span>${r.label}</span>
-          <span class="dpill dpill-${r.tier}">${DMG_LABELS[r.tier]}</span>
-          <span class="dmg-roll">roll: ${r.roll}</span>
-        </div>
-        ${r.cause ? `<div style="font-size:9px;color:rgba(255,255,255,0.42);padding:2px 0 6px 8px;line-height:1.5;border-left:2px solid ${DMG_COLORS[r.tier]}44;margin-left:4px">${r.cause}</div>` : ''}
-      `).join('')}
-      ${res.notes.length > 0 ? `
-        <div style="margin-top:5px;padding-top:5px;border-top:1px solid rgba(255,255,255,0.06)">
-          ${res.notes.map(n => `<div style="font-size:9px;color:rgba(255,255,255,0.35);margin-top:2px">→ ${n}</div>`).join('')}
-        </div>
-      ` : ''}
-    `;
-    container.appendChild(card);
-  });
-
-  const btn = document.createElement('button');
-  btn.className = 'action-btn flood';
-  btn.style.marginTop = '10px';
-  btn.textContent = '📋 Apply Damage & See Summary';
-  btn.onclick = () => {
-    G.pendingDmg.forEach(({ player: pl, result: res }) => {
-      pl.damage = { fDmg: res.fDmg, wDmg: res.wDmg, rDmg: res.rDmg, overall: res.overall };
-      if (res.overall === 2) {
-        pl.house = { fCount:0, wCount:0, rCount:0, fMat:null, wMat:null, rMat:null, stacked:false };
-      }
-      pl.roundLog.push({
-        round: G.round,
-        fMat: pl.house.fMat, wMat: pl.house.wMat, rMat: pl.house.rMat,
-        fCount: pl.house.fCount, stacked: pl.house.stacked,
-        damage: res,
-        coinsSpent: pl.savedCoins || 0,
-        playedAces: [...pl.playedAces],
-      });
-    });
-    // Rebuild all 3D plots with damage state
-    if (tsRef) G.players.forEach((p, i) => buildPlot(tsRef, p, getPlotX(i, G.players.length), p.damage));
-    G.phase = 'result';
-    updateGameUI();
-  };
-  container.appendChild(btn);
-}
-
-// ─────────────────────────────────────────────────────────────────────────
-//  RESULT PHASE
-// ─────────────────────────────────────────────────────────────────────────
-function renderResultPhase(container) {
-  const intro = document.createElement('div');
-  intro.style.cssText = 'font-size:12px;color:rgba(255,255,255,0.5);margin-bottom:10px';
-  intro.textContent = `Round ${G.round} — Summary:`;
-  container.appendChild(intro);
-
-  G.players.forEach(pl => {
-    const row = document.createElement('div');
-    row.style.cssText = `display:flex;align-items:center;gap:9px;padding:9px 11px;
-      background:rgba(255,255,255,0.04);border-radius:9px;margin-bottom:6px;
-      border-left:3px solid ${pl.color}`;
-    const icon = pl.damage.overall === 0 ? '🏠' : pl.damage.overall === 1 ? '🔧' : '☠️';
-    const matStr = pl.house.fMat
-      ? `${pl.house.fMat.name} + ${pl.house.wMat.name} + ${pl.house.rMat.name}${pl.house.stacked ? ' (stacked)' : ''}`
-      : 'Collapsed — will rebuild from scratch';
-    row.innerHTML = `
-      <span style="font-size:20px">${icon}</span>
-      <div style="flex:1">
-        <div style="font-size:12px;font-weight:700;color:${pl.color}">${pl.name}</div>
-        <div style="font-size:10px;color:rgba(255,255,255,0.45)">${matStr}</div>
-        ${pl.savedCoins ? `<div style="font-size:9px;color:#f9a825">🪙${pl.savedCoins + (pl.coins - computeSpent(pl.house))} coins carry forward</div>` : ''}
-      </div>
-      <span class="dpill dpill-${pl.damage.overall}">${DMG_SHORT[pl.damage.overall]}</span>
-    `;
-    container.appendChild(row);
-  });
-
-  const btn = document.createElement('button');
-  btn.className = 'action-btn primary';
-  btn.style.marginTop = '12px';
-  btn.textContent = G.round < 3 ? `▶ Start Round ${G.round + 1}` : '🏆 See Final Results';
-  btn.onclick = () => {
-    if (G.round < 3) {
-      applyNewRound();
-      // Reset flood water
-      if (tsRef) {
-        resetFlood(tsRef);
-        G.players.forEach((p, i) => buildPlot(tsRef, p, getPlotX(i, G.players.length), p.damage));
-        focusPlot(tsRef, getPlotX(0, G.players.length), G.players.length, false);
-      }
-      updateGameUI();
-    } else {
-      screen = 'end';
-      if (rafRef) cancelAnimationFrame(rafRef);
-      render();
-    }
-  };
-  container.appendChild(btn);
-}
-
-// ─────────────────────────────────────────────────────────────────────────
-//  END SCREEN
-// ─────────────────────────────────────────────────────────────────────────
-function renderEnd() {
-  const div = document.createElement('div');
-  div.className = 'screen end-screen';
-
-  // ── Left panel — round logs ───────────────────────────────────────────
-  const left = document.createElement('div');
-  left.className = 'end-left';
-  left.innerHTML = '<div class="end-title">🏠 Game Over — Full Round Log</div>';
-
-  // Winner card
-  const alive = G.players.filter(p => p.damage.overall < 2);
-  const wCard = document.createElement('div');
-  wCard.className = 'winner-card';
-  if (alive.length === 0) {
-    wCard.innerHTML = `<div style="font-size:32px">😔</div><div style="color:#ffd54f;font-size:16px;font-weight:700;margin-top:8px">All houses collapsed!</div><div style="color:rgba(255,255,255,0.5);font-size:12px;margin-top:4px">A great discussion awaits — what could have been done differently?</div>`;
-  } else if (alive.length === 1) {
-    wCard.innerHTML = `<div style="font-size:32px">🏆</div><div style="color:#ffd54f;font-size:16px;font-weight:700;margin-top:8px">${alive[0].name} wins!</div><div style="color:rgba(255,255,255,0.5);font-size:12px;margin-top:4px">Only house still standing after 3 floods</div>`;
-  } else {
-    wCard.innerHTML = `<div style="font-size:28px">🏠</div><div style="color:#ffd54f;font-size:14px;font-weight:700;margin-top:8px">${alive.length} houses survived!</div><div style="color:rgba(255,255,255,0.6);font-size:12px;margin-top:4px">${alive.map(p => `<span style="color:${p.color};font-weight:700">${p.name}</span>`).join(', ')} — let the group decide the winner!</div>`;
-  }
-  left.appendChild(wCard);
-
-  // Player summary chips
-  const psum = document.createElement('div');
-  psum.style.cssText = 'display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap';
-  G.players.forEach(pl => {
-    const safeCt = pl.roundLog.filter(r => r.damage.overall === 0).length;
-    const c = document.createElement('div');
-    c.style.cssText = `flex:1;min-width:110px;background:rgba(255,255,255,0.04);border:1px solid ${pl.color}44;border-radius:10px;padding:10px;text-align:center`;
-    c.innerHTML = `
-      <div style="width:30px;height:30px;border-radius:50%;background:${pl.color}22;color:${pl.color};font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;margin:0 auto 5px">${pl.name.charAt(0)}</div>
-      <div style="font-size:11px;font-weight:700;color:${pl.color}">${pl.name}</div>
-      <div style="font-size:10px;color:rgba(255,255,255,0.45);margin-top:3px">Safe ${safeCt}/3 rounds</div>
-      <div style="font-size:10px;color:${DMG_COLORS[pl.damage.overall]};margin-top:2px">${DMG_LABELS[pl.damage.overall]}</div>
-    `;
-    psum.appendChild(c);
-  });
-  left.appendChild(psum);
-
-  // Round-by-round blocks
-  [1, 2, 3].forEach(rnd => {
-    const lvl = LEVELS[rnd - 1];
-    const rb = document.createElement('div');
-    rb.className = 'round-block';
-    rb.innerHTML = `
-      <div class="rb-header">
-        <div class="rb-num" style="background:${lvl.color}">${rnd}</div>
-        <div style="flex:1"><div style="font-size:13px;font-weight:700;color:#fff">${lvl.emoji} ${lvl.name}</div></div>
-      </div>
-    `;
-    G.players.forEach(pl => {
-      const log = pl.roundLog.find(l => l.round === rnd);
-      const row = document.createElement('div');
-      row.className = 'player-result-row';
-      if (log) {
-        row.innerHTML = `
-          <span style="width:8px;height:8px;border-radius:50%;background:${pl.color};flex-shrink:0;display:inline-block"></span>
-          <span style="font-weight:700;color:${pl.color};min-width:75px">${pl.name}</span>
-          <span>${log.fMat ? log.fMat.emoji + ' ' + log.fMat.name.split(' ')[0] : '—'}</span>
-          <span style="opacity:0.4">+</span>
-          <span>${log.wMat ? log.wMat.emoji + ' ' + log.wMat.name.split(' ')[0] : '—'}</span>
-          <span style="opacity:0.4">+</span>
-          <span>${log.rMat ? log.rMat.emoji + ' ' + log.rMat.name.split(' ')[0] : '—'}</span>
-          ${log.stacked ? '<span style="font-size:8px;color:#29b6f6;margin-left:2px">⬆stacked</span>' : ''}
-          <span style="margin-left:auto"><span class="dpill dpill-${log.damage.overall}">${DMG_SHORT[log.damage.overall]}</span></span>
-        `;
-        if (log.playedAces?.length > 0) {
-          const ar = document.createElement('div');
-          ar.style.cssText = 'font-size:9px;color:rgba(255,255,255,0.35);padding:2px 0 2px 18px';
-          ar.textContent = 'Ace: ' + log.playedAces.map(id => { const a = ACE_POOL.find(x => x.id === id); return a ? a.emoji + ' ' + a.name : '?'; }).join(', ');
-          rb.appendChild(ar);
-        }
-      } else {
-        row.innerHTML = `<span style="color:rgba(255,255,255,0.3)">${pl.name} — no data this round</span>`;
-      }
-      rb.appendChild(row);
-    });
-    left.appendChild(rb);
-  });
-  div.appendChild(left);
-
-  // ── Right panel — reflections ─────────────────────────────────────────
-  const right = document.createElement('div');
-  right.className = 'end-right';
-  right.innerHTML = `
-    <div style="font-size:14px;font-weight:700;color:#fff;margin-bottom:14px">💬 Reflection Questions</div>
-    ${[
-      ['🌱', 'Which material choice surprised you most? Did concrete always win?'],
-      ['🏠', 'Did stacking your house help? At which flood level did it matter most?'],
-      ['🎲', 'How did the randomness feel? Was the probability spread fair to you?'],
-      ['💡', 'What would you do differently if you played again? Would you change materials or strategy?'],
-      ['🃏', 'Did your Ace Card save you — or did you wait too long to use it?'],
-      ['💧', 'If this were your real home, which upgrade would you prioritise first?'],
-    ].map(([icon, q]) => `<div class="reflect-q"><span style="font-size:16px;flex-shrink:0">${icon}</span><span>${q}</span></div>`).join('')}
-    <div style="height:1px;background:rgba(255,255,255,0.08);margin:14px 0"></div>
-    <div style="font-size:13px;font-weight:700;color:#fff;margin-bottom:10px">🌱 Key Learnings</div>
-    ${[
-      'Mud Plinth elevation can protect as well as concrete at shallow floods — material is not the only factor.',
-      'Bamboo walls flex under water and are not always the weakest choice — context matters.',
-      'Concrete foundations can fail on loose soil under their own weight — heavier is not always safer.',
-      'Stacking lifts living space above flood level — a key traditional resilience strategy.',
-      'Randomness reflects real-world unpredictability: soil type, drainage, rainfall intensity all vary.',
-      'Repair costs less than rebuilding — investing in maintenance is often the rational choice.',
-    ].map(t => `<div class="learn-item"><span style="color:#29b6f6;flex-shrink:0">✦</span><span>${t}</span></div>`).join('')}
-    <button class="home-btn" onclick="goHome()">🏠 Play Again</button>
-  `;
-  div.appendChild(right);
-  return div;
-}
-
-// ─────────────────────────────────────────────────────────────────────────
-//  GLOBAL HELPERS
-// ─────────────────────────────────────────────────────────────────────────
-function goHome() {
-  if (rafRef) cancelAnimationFrame(rafRef);
-  tsRef = null;
-  screen = 'setup';
-  setupNames = ['Player 1', 'Player 2'];
-  render();
-}
-window.goHome = goHome;
-
-// Boot
-render();
+animate()
 
 </script>
+
 </body>
 </html>
+```
