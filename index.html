@@ -1,369 +1,1786 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-<meta charset="utf-8">
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
 <title>Safer Together</title>
-<style></style>
-  /* ── RESET ── */
-*{margin:0;padding:0;box-sizing:border-box}
-html,body{width:100%;height:100%;overflow:hidden;background:#1a3a5c;font-family:sans-serif}
-#c{position:fixed;inset:0;width:100%;height:100%}
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;900&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<style>
+:root{
+  --bg: #0c1a0e;
+  --bg2: #142016;
+  --card: rgba(255,255,255,0.055);
+  --border: rgba(255,255,255,0.09);
+  --amber: #E8A838;
+  --river: #2B7DBF;
+  --earth: #C75B39;
+  --leaf: #56A84B;
+  --text: #F3EDD5;
+  --muted: rgba(243,237,213,0.48);
+  --safe: #6BCB77;
+  --warn: #FFD166;
+  --danger: #EF476F;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{width:100%;height:100%;background:var(--bg);font-family:'Nunito',sans-serif;overflow:hidden;color:var(--text)}
+#root{width:100%;height:100%;display:flex;flex-direction:column}
+button{cursor:pointer;font-family:'Nunito',sans-serif}
+input{font-family:'Nunito',sans-serif}
+::-webkit-scrollbar{width:4px}::-webkit-scrollbar-thumb{background:#3a5c30;border-radius:2px}
+.screen{width:100%;height:100%;display:flex;flex-direction:column;overflow:hidden}
 
-/* ── SCREENS ── */
-.scr{position:fixed;inset:0;z-index:20;display:none}
-.scr.on{display:flex}
-#hs{background:rgba(5,12,24,.97);flex-direction:row}
-#ns,#as{background:rgba(5,12,24,.97);align-items:center;justify-content:center}
-#bs,#fs{flex-direction:row;background:transparent}
-#dbs{flex-direction:row;background:rgba(5,12,24,.98);overflow:hidden}
-#dp{position:fixed;inset:0;z-index:60;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.7)}
-#dp.on{display:flex}
-.turn-toast{position:fixed;inset:0;z-index:55;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.75);opacity:0;pointer-events:none;transition:opacity .3s}
-.turn-toast.on{opacity:1;pointer-events:all}
-#turnToastInner{text-align:center;color:#fff}
+/* ─── SETUP ─────────────────────────────────────────────────────── */
+.setup-bg{
+  background:radial-gradient(ellipse at 30% 40%, #0f3020 0%, #081508 60%),
+             radial-gradient(ellipse at 80% 80%, #1a2f0a 0%, transparent 60%);
+  align-items:center;justify-content:center;gap:0;position:relative;overflow:hidden
+}
+.setup-bg::before{content:'';position:absolute;inset:0;background:url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%234CAF50' fill-opacity='0.03'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");pointer-events:none}
+.setup-wrap{display:flex;flex-direction:column;align-items:center;gap:20px;width:100%;max-width:520px;padding:24px;z-index:1}
+.setup-badge{background:rgba(232,168,56,0.12);border:1px solid rgba(232,168,56,0.3);border-radius:30px;padding:5px 16px;font-size:11px;font-weight:700;color:var(--amber);letter-spacing:2px;text-transform:uppercase}
+.setup-title{font-family:'Cinzel',serif;font-size:38px;font-weight:900;text-align:center;color:var(--text);line-height:1.1;text-shadow:0 0 40px rgba(232,168,56,0.2)}
+.setup-title span{color:var(--amber)}
+.setup-sub{color:var(--muted);font-size:13px;text-align:center;line-height:1.7;max-width:380px}
+.setup-card{background:rgba(255,255,255,0.045);border:1px solid var(--border);border-radius:18px;padding:28px 28px 24px;width:100%}
+.setup-label{font-size:12px;color:var(--muted);margin-bottom:8px;font-weight:700;letter-spacing:1px;text-transform:uppercase}
+.name-row{display:flex;gap:10px;align-items:center}
+.name-input{flex:1;background:rgba(255,255,255,0.07);border:1.5px solid var(--border);border-radius:10px;padding:11px 14px;color:var(--text);font-size:15px;outline:none;transition:border-color 0.2s}
+.name-input:focus{border-color:rgba(232,168,56,0.5)}
+.name-input::placeholder{color:rgba(243,237,213,0.25)}
+.start-btn{width:100%;padding:15px;border-radius:40px;border:none;background:linear-gradient(135deg,#a06b1a,#E8A838,#c87d1a);color:#0c1a0e;font-size:16px;font-weight:800;font-family:'Cinzel',serif;letter-spacing:1px;margin-top:16px;box-shadow:0 4px 30px rgba(232,168,56,0.3);transition:all 0.2s}
+.start-btn:hover{transform:translateY(-1px);box-shadow:0 6px 40px rgba(232,168,56,0.45)}
+.start-btn:disabled{background:#2a3a2a;color:#555;box-shadow:none;transform:none}
+.village-deco{font-size:40px;text-align:center;line-height:1;margin-bottom:-4px}
 
-/* ── HOME ── */
-.hl{flex:0 0 46%;padding:3vh 3vw 3vh 4vw;display:flex;flex-direction:column;justify-content:center}
-.hr{flex:1;padding:3vh 4vw 3vh 2vw;display:flex;flex-direction:column;justify-content:center}
-.gtag{display:inline-block;font-size:10px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;background:rgba(55,138,221,.18);color:#85B7EB;padding:4px 12px;border-radius:999px;border:.5px solid rgba(55,138,221,.3);margin-bottom:1rem;width:fit-content}
-.gtitle{font-size:clamp(32px,5.5vw,60px);font-weight:500;line-height:1.05;letter-spacing:-1.5px;color:#fff;margin-bottom:1.5vh}
-.gtitle .acc{color:#378ADD}
-.gdesc{font-size:clamp(11px,1.1vw,14px);color:#85B7EB;line-height:1.7;max-width:340px;margin-bottom:3vh}
-.fprow{display:flex;gap:8px;margin-bottom:3vh;flex-wrap:wrap}
-.fpill{padding:6px 12px;border-radius:999px;font-size:11px;font-weight:500;display:flex;align-items:center;gap:5px}
-.fpill .dot{width:7px;height:7px;border-radius:50%}
-.fp1{background:rgba(55,138,221,.2);color:#85B7EB;border:.5px solid rgba(55,138,221,.3)}.fp1 .dot{background:#378ADD}
-.fp2{background:rgba(12,68,124,.3);color:#B5D4F4;border:.5px solid rgba(55,138,221,.4)}.fp2 .dot{background:#185FA5}
-.fp3{background:rgba(5,15,30,.5);color:#E6F1FB;border:.5px solid rgba(133,183,235,.5)}.fp3 .dot{background:#0C447C}
-.plbl{font-size:10px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:rgba(133,183,235,.6);margin-bottom:10px}
-.popts{display:flex;gap:8px;margin-bottom:16px}
-.pbtn{width:52px;height:56px;border-radius:10px;border:.5px solid rgba(133,183,235,.25);background:rgba(255,255,255,.05);cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;transition:background .15s,transform .1s;color:#fff}
-.pbtn:hover{background:rgba(55,138,221,.15);transform:translateY(-2px)}
-.pbtn.sel{background:rgba(55,138,221,.25);border:1.5px solid #378ADD}
-.pbtn .pn{font-size:20px;font-weight:500}.pbtn .pl{font-size:9px;color:#85B7EB}
-.rtlbl{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:rgba(133,183,235,.6);margin-bottom:12px}
-.rgrid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-.rcard{background:rgba(255,255,255,.05);border:.5px solid rgba(133,183,235,.15);border-radius:10px;padding:10px 12px;display:flex;gap:9px}
-.rnum{width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:500;flex-shrink:0;background:rgba(55,138,221,.2);color:#85B7EB}
-.rtxt .rt{font-size:12px;font-weight:500;color:#E6F1FB;margin-bottom:2px}
-.rtxt .rd{font-size:10px;color:rgba(133,183,235,.75);line-height:1.5}
+/* ─── ZONE REVEAL ─────────────────────────────────────────────────── */
+.zone-reveal{background:radial-gradient(ellipse at center, #102215 0%, #060f07 100%);align-items:center;justify-content:center;position:relative}
+.zone-card{background:rgba(255,255,255,0.05);border:1.5px solid rgba(255,255,255,0.1);border-radius:24px;padding:40px 36px;max-width:480px;width:90%;text-align:center;position:relative;animation:zoneReveal 0.6s ease-out}
+@keyframes zoneReveal{from{opacity:0;transform:scale(0.85) translateY(20px)}to{opacity:1;transform:scale(1) translateY(0)}}
+.zone-emoji-big{font-size:64px;margin-bottom:12px;display:block}
+.zone-num{font-family:'Cinzel',serif;font-size:13px;letter-spacing:3px;text-transform:uppercase;margin-bottom:6px;opacity:0.6}
+.zone-name{font-family:'Cinzel',serif;font-size:28px;font-weight:600;margin-bottom:12px}
+.zone-risk-bar{display:flex;gap:4px;justify-content:center;margin:12px 0 16px}
+.risk-pip{width:28px;height:8px;border-radius:4px}
+.zone-desc{font-size:14px;color:var(--muted);line-height:1.7;margin-bottom:20px}
+.zone-narrative{background:rgba(255,255,255,0.04);border-left:3px solid var(--amber);border-radius:0 10px 10px 0;padding:12px 14px;font-size:13px;color:rgba(243,237,213,0.7);line-height:1.6;text-align:left;margin-bottom:20px;font-style:italic}
+.zone-discuss{background:rgba(43,125,191,0.1);border:1px solid rgba(43,125,191,0.25);border-radius:10px;padding:12px 14px;font-size:12px;color:rgba(163,210,255,0.85);line-height:1.6;text-align:left;margin-bottom:20px}
+.zone-discuss strong{color:#90CAF9}
+.proceed-btn{padding:13px 40px;border-radius:30px;border:none;font-size:14px;font-weight:700;color:#0c1a0e;background:linear-gradient(135deg,#E8A838,#c87d1a);font-family:'Cinzel',serif;letter-spacing:1px}
 
-/* ── SHARED ── */
-.sbtn{padding:12px 26px;font-size:14px;font-weight:500;border-radius:10px;border:none;background:#378ADD;color:#fff;cursor:pointer;transition:opacity .15s,transform .1s;width:fit-content}
-.sbtn:hover{opacity:.86;transform:translateY(-1px)}.sbtn:active{transform:scale(.98)}.sbtn:disabled{opacity:.3;cursor:not-allowed;transform:none}
-.panel{background:rgba(255,255,255,.04);border:.5px solid rgba(255,255,255,.12);border-radius:16px;padding:2.5rem 3rem;max-width:740px;width:100%;text-align:center}
-.pbadge{display:inline-block;font-size:10px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;background:rgba(55,138,221,.18);color:#85B7EB;padding:4px 12px;border-radius:999px;border:.5px solid rgba(55,138,221,.3);margin-bottom:1rem}
-.ptitle{font-size:24px;font-weight:500;color:#fff;margin-bottom:6px}
-.psub{font-size:13px;color:rgba(255,255,255,.45);margin-bottom:2rem;line-height:1.6}
+/* ─── GAME LAYOUT ───────────────────────────────────────────────────── */
+.game-screen{flex-direction:row}
+.left-panel{width:60%;display:flex;flex-direction:column;overflow:hidden;position:relative}
+.right-panel{width:40%;background:#0b160d;border-left:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden}
 
-/* ── NAME / ASSIGN ── */
-.ngrid{display:flex;flex-wrap:wrap;gap:12px;justify-content:center;margin-bottom:2rem}
-.ncard{background:rgba(255,255,255,.05);border:.5px solid rgba(255,255,255,.12);border-radius:12px;padding:14px 18px;min-width:140px;text-align:left}
-.ncard-l{font-size:10px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:rgba(255,255,255,.35);margin-bottom:8px}
-.ninput{background:transparent;border:none;border-bottom:.5px solid rgba(255,255,255,.22);color:#fff;font-size:15px;font-weight:500;outline:none;width:100%;padding:4px 0;font-family:sans-serif}
-.ninput::placeholder{color:rgba(255,255,255,.18)}
-.agrid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:1.5rem;width:100%}
-.acard{border-radius:12px;overflow:hidden;border:.5px solid rgba(255,255,255,.08);background:rgba(255,255,255,.04)}
-.acard.pc{border-color:rgba(255,255,255,.2);background:rgba(255,255,255,.07)}
-.atop{padding:9px 14px;font-size:11px;font-weight:700;letter-spacing:.05em;color:#fff;text-transform:uppercase}
-.abody{padding:12px 14px 14px}
-.aname{font-size:17px;font-weight:500;color:#fff;margin-bottom:3px}
-.azone{font-size:11px;font-weight:600;margin-bottom:8px}
-.atag{display:inline-block;font-size:10px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;padding:3px 10px;border-radius:999px;background:rgba(55,138,221,.25);color:#85B7EB}
-.atag.npc{background:rgba(255,255,255,.08);color:rgba(255,255,255,.38)}
-.ace-preview-row{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap}
-.ace-pip{font-size:10px;padding:3px 9px;border-radius:999px;background:rgba(249,168,37,.12);color:#fcd462;border:.5px solid rgba(249,168,37,.25)}
+/* topbar */
+.topbar{background:rgba(0,0,0,0.45);border-bottom:1px solid var(--border);padding:7px 14px;display:flex;align-items:center;gap:10px;flex-shrink:0}
+.top-zone-pill{padding:3px 11px;border-radius:14px;font-size:10px;font-weight:800;letter-spacing:0.5px;border:1px solid}
+.top-round-badge{padding:3px 10px;border-radius:12px;font-size:11px;font-weight:700;color:#fff}
+.top-player{font-size:12px;font-weight:700;color:var(--amber);flex:1}
+.home-link{background:rgba(255,255,255,0.08);border:none;border-radius:8px;color:var(--muted);padding:5px 10px;font-size:11px}
 
-/* ── BUILD SIDE PANEL ── */
-#bLeft,#fLeft{flex:1;pointer-events:none;position:relative;padding:14px}
-#bRight,#fRight{width:420px;background:rgba(5,12,24,.97);border-left:.5px solid rgba(255,255,255,.1);display:flex;flex-direction:column;overflow-y:auto;pointer-events:all}
-.canvas-hint{position:absolute;bottom:16px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.55);color:rgba(255,255,255,.7);border-radius:999px;padding:7px 18px;font-size:12px;pointer-events:none;white-space:nowrap;border:.5px solid rgba(255,255,255,.12)}
-.phead{padding:14px 16px 12px;border-bottom:.5px solid rgba(255,255,255,.08)}
-.phead-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
-.btag{font-size:10px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;background:rgba(55,138,221,.18);color:#85B7EB;padding:3px 10px;border-radius:999px;border:.5px solid rgba(55,138,221,.3)}
-.pname{font-size:20px;font-weight:500;color:#fff;margin-bottom:2px}
-.psub2{font-size:11px;color:rgba(255,255,255,.38)}
-.cbar{display:flex;align-items:center;gap:10px;padding:10px 16px;background:rgba(255,192,32,.05);border-bottom:.5px solid rgba(255,255,255,.06)}
-.clbl{font-size:10px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:rgba(255,255,255,.3);min-width:38px}
-.cval{font-size:18px;font-weight:500;color:#f5c020;min-width:72px}
-.ci{width:11px;height:11px;border-radius:50%;background:#f5c020;display:inline-block;margin:1px}
-.dice-sec{display:flex;align-items:center;gap:12px;padding:10px 16px;border-bottom:.5px solid rgba(255,255,255,.06)}
-.die{width:46px;height:46px;border-radius:8px;background:rgba(255,255,255,.08);border:.5px solid rgba(255,255,255,.18);display:flex;align-items:center;justify-content:center;font-size:28px;color:#fff}
-.die.spin{background:rgba(55,138,221,.2);border-color:#378ADD}
-.rbtn{padding:9px 16px;font-size:13px;font-weight:500;border-radius:8px;border:none;background:#378ADD;color:#fff;cursor:pointer}
-.rbtn:disabled{opacity:.35;cursor:not-allowed}
-.rres{font-size:11px;color:#f5c020;font-weight:500;line-height:1.4}
+/* 3D canvas */
+.canvas-wrap{flex:1;position:relative;overflow:hidden}
+canvas{width:100%!important;height:100%!important;display:block}
+.flood-label{position:absolute;top:12px;left:50%;transform:translateX(-50%);background:rgba(21,72,152,0.92);color:#fff;border-radius:20px;padding:7px 22px;font-size:14px;font-weight:700;pointer-events:none;display:none;font-family:'Cinzel',serif}
+.canvas-hint{position:absolute;bottom:12px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.6);color:rgba(255,255,255,0.55);border-radius:20px;padding:5px 16px;font-size:11px;pointer-events:none;white-space:nowrap}
+.orbit-btn{position:absolute;top:10px;right:10px;padding:5px 12px;border-radius:20px;border:none;background:rgba(255,255,255,0.1);color:var(--text);font-size:11px;font-weight:700}
 
-/* ── BUILD STATUS ── */
-.build-status{padding:10px 16px;border-bottom:.5px solid rgba(255,255,255,.06);display:flex;gap:6px}
-.bstat-box{flex:1;background:rgba(255,255,255,.04);border-radius:8px;padding:8px 10px;position:relative}
-.bstat-box.done{background:rgba(34,200,74,.08);border:.5px solid rgba(34,200,74,.25)}
-.bstat-box.partial{background:rgba(232,144,32,.06);border:.5px solid rgba(232,144,32,.2)}
-.bstat-lbl{font-size:9px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:rgba(255,255,255,.3);margin-bottom:3px}
-.bstat-val{font-size:11px;font-weight:500;color:#fff;line-height:1.3}
-.bstat-sub{font-size:9px;color:rgba(255,255,255,.3);margin-top:2px}
-.bstat-box .rem-btn{position:absolute;top:4px;right:4px;width:16px;height:16px;border-radius:50%;border:none;background:rgba(255,82,82,.2);color:rgba(255,82,82,.8);font-size:10px;cursor:pointer;display:flex;align-items:center;justify-content:center}
-.hintbar{padding:8px 16px;font-size:11px;color:rgba(255,165,50,.85);background:rgba(255,140,0,.08);border-bottom:.5px solid rgba(255,140,0,.18);display:none}
-.hintbar.on{display:block}
-.hlbl{display:inline-block;font-size:9px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;background:rgba(255,140,0,.2);color:rgba(255,165,50,.9);padding:2px 7px;border-radius:4px;margin-right:6px}
+/* right panel */
+.rp-header{padding:12px 14px 8px;border-bottom:1px solid var(--border);flex-shrink:0}
+.rp-phase{font-size:10px;color:var(--muted);margin-bottom:2px;letter-spacing:1px;text-transform:uppercase}
+.rp-title{font-size:15px;font-weight:800;color:var(--text);font-family:'Cinzel',serif}
+.rp-scroll{flex:1;overflow-y:auto;padding:10px 12px 20px}
 
-/* ── MATERIAL PALETTE ── */
-.palwrap{padding:10px 16px 14px;flex:1}
-.pcat{font-size:10px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:rgba(255,255,255,.3);margin:10px 0 6px}
-.mcards{display:flex;flex-direction:column;gap:5px}
-.mc{background:rgba(255,255,255,.05);border:.5px solid rgba(255,255,255,.1);border-radius:8px;padding:9px 12px;cursor:grab;display:flex;justify-content:space-between;align-items:center;user-select:none;transition:background .12s}
-.mc:hover{background:rgba(255,255,255,.1);border-color:rgba(255,255,255,.2)}
-.mc.locked{opacity:.28;cursor:not-allowed}
-.mc.dragging{opacity:.45;transform:scale(.97)}
-.mc-l{display:flex;flex-direction:column;gap:2px}
-.mc-n{font-size:12px;font-weight:500}
-.mc-h{font-size:10px;color:rgba(255,255,255,.4)}
-.mc-c{font-size:11px;color:#f5c020;font-weight:500;white-space:nowrap}
-.mc-incompat{font-size:9px;color:rgba(255,82,82,.7);margin-top:1px}
+/* elder dialogue */
+.elder-box{background:rgba(232,168,56,0.07);border:1px solid rgba(232,168,56,0.2);border-radius:12px;padding:10px 12px;margin-bottom:10px;display:flex;gap:10px;align-items:flex-start}
+.elder-avatar{width:32px;height:32px;border-radius:50%;background:rgba(232,168,56,0.2);display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;margin-top:1px}
+.elder-text{font-size:12px;color:rgba(243,237,213,0.75);line-height:1.6;font-style:italic}
+.elder-name{font-size:9px;font-weight:800;color:var(--amber);letter-spacing:1px;text-transform:uppercase;margin-bottom:3px}
 
-/* ── STATS ── */
-.conf{padding:12px 16px;border-top:.5px solid rgba(255,255,255,.08)}
-.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px}
-.stat{background:rgba(255,255,255,.04);border-radius:8px;padding:10px;text-align:center}
-.stat-l{display:block;font-size:9px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:rgba(255,255,255,.3);margin-bottom:4px}
-.stat-v{font-size:16px;font-weight:500;color:#fff}
+/* discussion prompt */
+.discuss-box{background:rgba(43,125,191,0.08);border:1px solid rgba(43,125,191,0.2);border-radius:12px;padding:10px 12px;margin-bottom:10px}
+.discuss-icon{font-size:10px;font-weight:800;color:#90CAF9;letter-spacing:1px;text-transform:uppercase;margin-bottom:4px}
+.discuss-q{font-size:12px;color:rgba(163,210,255,0.85);line-height:1.6}
 
-/* ── HUD ── */
-.lhud{position:absolute;top:14px;right:14px;display:flex;flex-direction:column;gap:5px}
-.phud{background:rgba(0,0,0,.55);border:.5px solid rgba(255,255,255,.12);border-radius:8px;padding:6px 12px;display:flex;align-items:center;gap:8px}
-.phud.active{border-color:rgba(55,138,221,.5)}
-.phud-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0}
-.phud-n{font-size:12px;color:#fff;font-weight:500}
-.phud-h{font-size:11px;color:#e85050}
+/* stats */
+.stats-row{display:flex;gap:6px;margin-bottom:10px}
+.stat-box{flex:1;background:var(--card);border-radius:9px;padding:8px 6px;text-align:center;border:1px solid var(--border)}
+.stat-label{font-size:9px;color:var(--muted);margin-bottom:2px;text-transform:uppercase;letter-spacing:0.5px}
+.stat-val{font-size:15px;font-weight:800;color:var(--text)}
 
-/* ── DELETE POPUP ── */
-.delpanel{background:#0e1e34;border:.5px solid rgba(255,255,255,.15);border-radius:14px;padding:2rem;max-width:300px;width:90%;text-align:center}
-.delt{font-size:16px;font-weight:500;color:#fff;margin-bottom:6px}
-.dels{font-size:12px;color:rgba(255,255,255,.45);margin-bottom:1.5rem;line-height:1.5}
-.delbts{display:flex;gap:10px;justify-content:center}
-.db{padding:10px 22px;font-size:13px;font-weight:500;border-radius:8px;border:none;cursor:pointer}
-.db-y{background:#e82020;color:#fff}.db-n{background:rgba(255,255,255,.08);color:rgba(255,255,255,.7);border:.5px solid rgba(255,255,255,.15)}
+/* dice */
+.dice-area{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:16px;text-align:center;margin-bottom:10px}
+.dice-faces{display:flex;gap:18px;justify-content:center;margin:12px 0 10px}
+.die{width:54px;height:54px;background:linear-gradient(135deg,#fffbe8,#f0e6c0);border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:28px;color:#1a1a0e;font-weight:900;box-shadow:0 4px 12px rgba(0,0,0,0.5),inset 0 1px 0 rgba(255,255,255,0.8);transition:transform 0.1s}
+.die.rolling{animation:diceRoll 0.5s ease-out}
+@keyframes diceRoll{0%{transform:rotate(0)scale(1)}25%{transform:rotate(18deg)scale(1.12)}50%{transform:rotate(-12deg)scale(0.88)}75%{transform:rotate(8deg)scale(1.06)}100%{transform:rotate(0)scale(1)}}
+.roll-btn{padding:11px 32px;border-radius:30px;border:none;background:linear-gradient(135deg,#c87b1a,#E8A838);color:#0c1a0e;font-size:14px;font-weight:800;font-family:'Cinzel',serif;letter-spacing:0.5px;box-shadow:0 3px 12px rgba(232,168,56,0.3)}
 
-/* ── FLOOD SCREEN ── */
-.f-header{padding:14px 16px 12px;border-bottom:.5px solid rgba(255,255,255,.08)}
-.f-level-name{font-size:20px;font-weight:500;margin:6px 0 4px}
-.f-level-desc{font-size:12px;color:rgba(255,255,255,.45);line-height:1.6}
-.f-cards{padding:12px 14px;display:flex;flex-direction:column;gap:10px;flex:1;overflow-y:auto}
+/* free house notice */
+.free-notice{background:rgba(86,168,75,0.1);border:1px solid rgba(86,168,75,0.3);border-radius:11px;padding:10px 12px;margin-bottom:10px}
+.free-notice-title{font-size:11px;font-weight:800;color:var(--leaf);margin-bottom:3px;text-transform:uppercase;letter-spacing:0.5px}
+.free-notice-text{font-size:12px;color:rgba(163,230,155,0.75);line-height:1.5}
 
-/* ── DAMAGE CARD ── */
-.fcard{border-radius:10px;border:.5px solid rgba(255,255,255,.1);background:rgba(255,255,255,.04);overflow:hidden}
-.fcard-top{padding:11px 14px}
-.fcard-top-row{display:flex;justify-content:space-between;align-items:flex-start;gap:8px}
-.fcard-name{font-size:15px;font-weight:500;color:#fff;margin-bottom:2px}
-.fcard-zone{font-size:11px}
-.fcard-verdict{font-size:11px;font-weight:600;padding:4px 10px;border-radius:6px;white-space:nowrap;flex-shrink:0}
-.fcard-body{padding:10px 14px 14px;display:flex;flex-direction:column;gap:8px}
-.scenario-block{background:rgba(255,255,255,.03);border-radius:8px;padding:10px 12px;border-left:3px solid}
-.scenario-title{font-size:10px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;margin-bottom:5px}
-.scenario-text{font-size:12px;color:rgba(255,255,255,.7);line-height:1.65}
-.scenario-insight{font-size:11px;font-style:italic;margin-top:8px;padding-top:8px;border-top:.5px solid rgba(255,255,255,.08);color:rgba(255,255,255,.5);line-height:1.6}
-.ace-used-row{display:flex;flex-wrap:wrap;gap:5px;padding-top:6px}
+/* build strip */
+.build-strip{display:flex;gap:5px;margin-bottom:8px}
+.bsbox{flex:1;border-radius:9px;padding:7px 6px;position:relative;border:1.5px solid}
+.bslabel{font-size:8px;font-weight:700;margin-bottom:2px;text-transform:uppercase;letter-spacing:0.5px}
+.bsval{font-size:10px;font-weight:800;color:var(--text)}
+.bshint{font-size:8px;margin-top:2px}
+.rem-btn{position:absolute;top:3px;right:3px;width:14px;height:14px;border-radius:50%;border:none;background:#3a3030;color:#ccc;font-size:9px;line-height:14px;padding:0;text-align:center}
 
-/* ── ACE CARDS ── */
-.ace-panel{padding:12px 14px 16px;border-top:.5px solid rgba(255,255,255,.1);background:rgba(0,0,0,.3)}
-.ace-phase-tag{display:inline-block;font-size:11px;font-weight:600;padding:4px 12px;border-radius:999px;width:fit-content;margin-bottom:4px}
-.ace-phase-sub{font-size:11px;color:rgba(255,255,255,.35);margin-bottom:10px}
-.ace-cards-row{display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap}
-.ace-card{flex:1;min-width:120px;background:rgba(255,255,255,.05);border:.5px solid rgba(255,255,255,.12);border-radius:10px;padding:10px 11px;cursor:pointer;transition:background .15s,transform .12s}
-.ace-card:hover:not(.ace-locked){background:rgba(255,255,255,.1);transform:translateY(-2px)}
-.ace-locked{opacity:.3;cursor:not-allowed}
-.ace-card-icon{width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:16px;border:.5px solid transparent;margin-bottom:6px}
-.ace-card-name{font-size:11px;font-weight:600;margin-bottom:3px}
-.ace-card-desc{font-size:10px;color:rgba(255,255,255,.4);line-height:1.5}
-.ace-skip-btn{padding:8px 20px;font-size:12px;font-weight:500;border-radius:8px;border:.5px solid rgba(255,255,255,.2);background:rgba(255,255,255,.06);color:rgba(255,255,255,.7);cursor:pointer;width:100%}
-.ace-skip-btn:hover{background:rgba(255,255,255,.1)}
-.ace-done{text-align:center;padding:.5rem 0}
-.ace-done-title{font-size:13px;color:rgba(255,255,255,.45);margin-bottom:1rem}
+/* material cards */
+.mat-section{background:rgba(255,255,255,0.025);border:1px solid var(--border);border-radius:12px;padding:10px;margin-bottom:8px}
+.mat-title{font-size:10px;font-weight:800;color:var(--muted);margin-bottom:8px;display:flex;align-items:center;gap:5px;text-transform:uppercase;letter-spacing:0.5px}
+.mat-cards{display:flex;gap:5px}
+.mcard{flex:1;border-radius:10px;padding:8px 4px;text-align:center;cursor:grab;border:1.5px solid;transition:all 0.15s;position:relative;user-select:none}
+.mcard:hover{transform:translateY(-2px)}
+.mcard:active{cursor:grabbing}
+.mc-emoji{font-size:18px}
+.mc-name{font-size:7.5px;font-weight:700;color:rgba(243,237,213,0.85);margin-top:3px;line-height:1.3}
+.mc-stats{display:flex;gap:2px;justify-content:center;margin-top:4px}
+.mc-pill{border-radius:4px;padding:2px 5px;font-size:8px;font-weight:700}
+.mc-badge{position:absolute;top:2px;right:2px;font-size:7px}
+.drop-zone{border:2px dashed rgba(43,125,191,0.6);border-radius:9px;background:rgba(43,125,191,0.06);padding:7px;text-align:center;font-size:10px;color:rgba(130,190,255,0.7);margin-top:5px;transition:all 0.2s;font-weight:700;flex:1}
+.drop-zone.active-dz{background:rgba(43,125,191,0.18);border-color:#2B7DBF}
+.drop-zone-row{display:flex;gap:5px}
 
-/* ── DEBRIEF ── */
-.debrief-left{flex:1;overflow-y:auto;padding:2rem 2.5rem}
-.debrief-right{width:340px;background:rgba(0,0,0,.3);border-left:.5px solid rgba(255,255,255,.08);overflow-y:auto;padding:1.5rem}
-.debrief-title{font-size:28px;font-weight:500;color:#fff;margin-bottom:6px}
-.debrief-sub{font-size:13px;color:rgba(255,255,255,.45);margin-bottom:2rem;line-height:1.6}
-.winner-block{background:rgba(249,168,37,.08);border:.5px solid rgba(249,168,37,.25);border-radius:12px;padding:1.25rem 1.5rem;margin-bottom:1.5rem;text-align:center}
-.winner-icon{font-size:36px;margin-bottom:8px}
-.winner-name{font-size:22px;font-weight:500;color:#fcd462;margin-bottom:4px}
-.winner-sub{font-size:12px;color:rgba(255,255,255,.4);line-height:1.6}
-.round-block{background:rgba(255,255,255,.04);border:.5px solid rgba(255,255,255,.08);border-radius:12px;padding:1rem 1.25rem;margin-bottom:10px}
-.rb-header{display:flex;align-items:center;gap:10px;margin-bottom:10px}
-.rb-num{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;color:#fff;flex-shrink:0}
-.rb-title{font-size:14px;font-weight:500;color:#fff}
-.rb-desc{font-size:11px;color:rgba(255,255,255,.4)}
-.player-result-row{display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:.5px solid rgba(255,255,255,.05);font-size:11px;color:rgba(255,255,255,.7)}
-.player-result-row:last-child{border-bottom:none}
-.pr-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
-.pr-name{font-weight:600;min-width:70px}
-.pr-mats{flex:1;color:rgba(255,255,255,.5)}
-.pr-pill{font-size:9px;font-weight:600;padding:2px 7px;border-radius:4px;white-space:nowrap}
-.pr-pill-0{background:rgba(34,200,74,.15);color:#22c84a}
-.pr-pill-1{background:rgba(232,144,32,.15);color:#e89020}
-.pr-pill-2{background:rgba(232,32,32,.15);color:#e82020}
-.section-title{font-size:11px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:rgba(255,255,255,.35);margin-bottom:10px}
-.learning-item{display:flex;gap:8px;margin-bottom:10px;font-size:12px;color:rgba(255,255,255,.65);line-height:1.6}
-.learning-icon{font-size:14px;flex-shrink:0;margin-top:1px}
-.reflection-q{background:rgba(255,255,255,.04);border-radius:8px;padding:10px 12px;margin-bottom:8px;font-size:12px;color:rgba(255,255,255,.6);line-height:1.6;border-left:3px solid rgba(55,138,221,.4)}
-.final-scores{display:flex;flex-direction:column;gap:8px;margin-bottom:1.5rem}
-.score-row{display:flex;align-items:center;gap:10px;background:rgba(255,255,255,.05);border-radius:8px;padding:10px 12px}
-.score-rank{font-size:18px;font-weight:500;min-width:28px}
-.score-name{font-size:14px;font-weight:500;color:#fff;flex:1}
-.score-hearts{font-size:13px;color:#e85050}
+/* ace cards */
+.ace-section{background:rgba(232,168,56,0.06);border:1px solid rgba(232,168,56,0.18);border-radius:12px;padding:10px;margin-bottom:8px}
+.ace-title{font-size:10px;font-weight:800;color:var(--amber);margin-bottom:7px;text-transform:uppercase;letter-spacing:0.5px}
+.ace-cards{display:flex;gap:5px;flex-wrap:wrap}
+.acard{background:rgba(232,168,56,0.08);border:1.5px solid rgba(232,168,56,0.25);border-radius:9px;padding:6px 9px;font-size:10px;color:#FFD166;display:flex;align-items:center;gap:6px;cursor:pointer;transition:all 0.15s}
+.acard:hover{background:rgba(232,168,56,0.18)}
+.acard.used{opacity:0.3;cursor:default;text-decoration:line-through}
+.acard.played{border-color:var(--safe);color:var(--safe);background:rgba(107,203,119,0.1)}
+
+/* scenario display */
+.scenario-wrap{margin-bottom:8px}
+.scenario-card{background:rgba(255,255,255,0.04);border-radius:11px;padding:10px 12px;margin-bottom:6px;border-left:3px solid}
+.sc-label{font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:1px;margin-bottom:5px;display:flex;align-items:center;gap:5px}
+.sc-outcome{display:inline-flex;align-items:center;gap:4px;border-radius:6px;padding:2px 8px;font-size:9px;font-weight:800;margin-bottom:6px}
+.sc-narrative{font-size:11px;color:rgba(243,237,213,0.68);line-height:1.6}
+.sc-notes{margin-top:6px}
+.sc-note{font-size:10px;color:rgba(243,237,213,0.45);display:flex;align-items:flex-start;gap:5px;margin-bottom:3px;line-height:1.4}
+
+/* action buttons */
+.action-btn{width:100%;padding:12px;border-radius:12px;border:none;font-size:14px;font-weight:700;color:#fff;margin-top:4px;transition:all 0.15s}
+.action-btn.primary{background:linear-gradient(135deg,#1a4f1a,#2a7a2a)}
+.action-btn.flood{background:linear-gradient(135deg,#7a1a1a,#c42828)}
+.action-btn.disabled{background:#1a2a1a;color:#3a5a3a}
+.action-btn:not(.disabled):hover{filter:brightness(1.1)}
+
+/* result phase */
+.result-card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:12px;margin-bottom:8px;border-left:3px solid}
+.reflect-box{background:rgba(43,125,191,0.07);border:1px solid rgba(43,125,191,0.18);border-radius:11px;padding:12px;margin-top:10px}
+.reflect-title{font-size:10px;font-weight:800;color:#90CAF9;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px}
+.reflect-q{font-size:12px;color:rgba(163,210,255,0.8);line-height:1.6;margin-bottom:6px;padding-left:14px;position:relative}
+.reflect-q::before{content:'›';position:absolute;left:0;color:#90CAF9;font-weight:700}
+
+/* dpill */
+.dpill{display:inline-flex;align-items:center;gap:3px;border-radius:5px;padding:2px 7px;font-size:9px;font-weight:800}
+.dpill-0{background:rgba(107,203,119,0.15);color:var(--safe)}
+.dpill-1{background:rgba(255,209,102,0.15);color:var(--warn)}
+.dpill-2{background:rgba(239,71,111,0.15);color:var(--danger)}
+
+/* end screen */
+.end-screen{background:#0a1609;flex-direction:row}
+.end-left{flex:1;overflow-y:auto;padding:20px}
+.end-right{width:260px;overflow-y:auto;padding:16px;border-left:1px solid var(--border);background:#070e06}
+.end-title{font-family:'Cinzel',serif;color:var(--text);font-size:20px;font-weight:700;margin-bottom:16px}
+.winner-card{background:linear-gradient(135deg,rgba(232,168,56,0.12),rgba(86,168,75,0.08));border:1px solid rgba(232,168,56,0.25);border-radius:16px;padding:18px;margin-bottom:16px;text-align:center}
+.round-block{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:12px;margin-bottom:10px}
+.rb-header{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.rb-num{width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff;flex-shrink:0}
+.home-btn{width:100%;padding:12px;border-radius:12px;border:none;background:linear-gradient(135deg,#1a4f1a,#2a7a2a);color:var(--text);font-size:14px;font-weight:700;margin-top:12px;font-family:'Cinzel',serif}
+.learn-item{display:flex;gap:6px;margin-bottom:8px;font-size:11px;color:var(--muted);line-height:1.5}
+
+/* toast */
+.toast-msg{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:rgba(10,20,10,0.96);border:1px solid rgba(232,168,56,0.3);color:var(--text);border-radius:14px;padding:9px 20px;font-size:12px;font-weight:700;pointer-events:none;z-index:100;max-width:300px;text-align:center;box-shadow:0 4px 20px rgba(0,0,0,0.5)}
+
+/* layout toggles */
+.lay-toggle{display:flex;gap:5px;margin-bottom:8px}
+.lay-btn{padding:4px 10px;border-radius:8px;border:none;font-size:10px;font-weight:700;transition:all 0.2s}
 </style>
 </head>
 <body>
+<div id="root"></div>
+<script>
+// ═══════════════════════════════════════════════════════════════════
+// DATA
+// ═══════════════════════════════════════════════════════════════════
 
-<canvas id="c"></canvas>
+// ═══════════════════════════════════════════════════════════════════
+// TERRAIN — exact 8-degree slope
+// y = 0 at z = RIVER_Z (river bank edge); rises inland (negative Z)
+// ═══════════════════════════════════════════════════════════════════
+const SLOPE_DEG = 8;
+const SLOPE     = Math.tan(SLOPE_DEG * Math.PI / 180); // ≈ 0.1405
+const RIVER_Z   = 6;   // z-coordinate where terrain meets river (y=0)
 
-<!-- ── HOME ── -->
-<div id="hs" class="scr on">
-  <div class="hl">
-    <span class="gtag">Educational · Multiplayer · 2–5 players</span>
-    <h1 class="gtitle">Safer<br><span class="acc">Together</span></h1>
-    <p class="gdesc">A disaster struck the community. Roll dice, build wisely — stack floors or extend sideways — and survive three rising floods.</p>
-    <div class="fprow">
-      <div class="fpill fp1"><div class="dot"></div>Round 1 — Knee height</div>
-      <div class="fpill fp2"><div class="dot"></div>Round 2 — Waist height</div>
-      <div class="fpill fp3"><div class="dot"></div>Round 3 — Head height</div>
-    </div>
-    <p class="plbl">Number of players</p>
-    <div class="popts">
-      <button class="pbtn" onclick="selP(2,this)"><span class="pn">2</span><span class="pl">players</span></button>
-      <button class="pbtn" onclick="selP(3,this)"><span class="pn">3</span><span class="pl">players</span></button>
-      <button class="pbtn" onclick="selP(4,this)"><span class="pn">4</span><span class="pl">players</span></button>
-      <button class="pbtn" onclick="selP(5,this)"><span class="pn">5</span><span class="pl">players</span></button>
-    </div>
-    <button class="sbtn" id="startBtn" disabled onclick="showNameScreen()">Select players to begin</button>
-  </div>
-  <div class="hr">
-    <p class="rtlbl">How to play</p>
-    <div class="rgrid">
-      <div class="rcard"><div class="rnum">1</div><div class="rtxt"><p class="rt">Take turns</p><p class="rd">Each player builds their own house.</p></div></div>
-      <div class="rcard"><div class="rnum">2</div><div class="rtxt"><p class="rt">Roll dice</p><p class="rd">Two dice — total is your coin budget.</p></div></div>
-      <div class="rcard"><div class="rnum">3</div><div class="rtxt"><p class="rt">Build in 3D</p><p class="rd">Drag materials onto your plot. Stack up or extend sideways.</p></div></div>
-      <div class="rcard"><div class="rnum">4</div><div class="rtxt"><p class="rt">Flood strikes</p><p class="rd">Damage depends on materials, plot zone and flood height.</p></div></div>
-      <div class="rcard"><div class="rnum">5</div><div class="rtxt"><p class="rt">Play ace cards</p><p class="rd">Two special cards per player to reduce damage.</p></div></div>
-      <div class="rcard"><div class="rnum">6</div><div class="rtxt"><p class="rt">Survive 3 rounds</p><p class="rd">Most hearts after 3 floods wins.</p></div></div>
-    </div>
-  </div>
-</div>
+function terrainH(x, z) {
+  const base  = (RIVER_Z - z) * SLOPE;           // clean 8° ramp
+  const noise = Math.sin(x * 0.38) * 0.07        // gentle lateral undulation
+              + Math.cos(z * 0.52 + x * 0.28) * 0.05
+              + Math.sin(x * 1.2 + z * 0.7) * 0.018; // fine detail
+  return Math.max(0, base + noise);
+}
 
-<!-- ── NAME ENTRY ── -->
-<div id="ns" class="scr">
-  <div class="panel">
-    <div class="pbadge">Step 1 of 2</div>
-    <h2 class="ptitle">Who's playing?</h2>
-    <p class="psub">Enter player names. Plots will be randomly assigned.</p>
-    <div id="nInputs" class="ngrid"></div>
-    <button class="sbtn" onclick="doAssign()">Shuffle &amp; Assign →</button>
-  </div>
-</div>
+const RISK_ZONES = [
+  { id:1, name:'Hilltop Terrace', color:'#4CAF50', emoji:'⛰️',
+    desc:'Elevated ground, far above flood reach. Safest plot in the village — but the climb is steep.',
+    narrative:'Your plot sits high on the hillside above the river. Even in severe monsoons, floodwater rarely climbs this far. You have the luxury of watching the valley flood from safety.',
+    discuss:'Most people don\'t choose Zone 1 — it chooses them. Why might wealthy families occupy the high ground while poorer families end up closer to the water?',
+    floodMult:0.40, plotZ:-4.5, get baseY(){ return terrainH(0, this.plotZ); } },
+  { id:2, name:'Upper Slope', color:'#8BC34A', emoji:'🌿',
+    desc:'Good elevation with some flood risk during extreme events. A coveted spot.',
+    narrative:'A comfortable position, one terrace below the hilltop. You are above most flood lines, though once-in-a-decade floods can still reach your doorstep.',
+    discuss:'Zone 2 plots are often taken by families with enough savings to choose wisely. What advantages beyond flood safety might living on a slope provide?',
+    floodMult:0.70, plotZ:-2.5, get baseY(){ return terrainH(0, this.plotZ); } },
+  { id:3, name:'Mid Village', color:'#FFC107', emoji:'🏘️',
+    desc:'The heart of the settlement. Floods here 2-3 times a decade — manageable with strong construction.',
+    narrative:'You are in the bustling centre of the village. Schools, markets, and neighbours are all around. The flood memories here are shared ones — nearly every family has rebuilt at least once.',
+    discuss:'Why might a family choose to stay in a flood-prone village year after year, even after losing their home? What keeps communities in flood zones?',
+    floodMult:1.00, plotZ:-0.5, get baseY(){ return terrainH(0, this.plotZ); } },
+  { id:4, name:'Lower Terrace', color:'#FF9800', emoji:'⚠️',
+    desc:'Close to the river. Fertile soil for farming, but the flood season is harsh and predictable.',
+    narrative:'The lower terrace floods nearly every monsoon. Families here have learned to be quick — to move their belongings upstairs, to stack sandbags before dawn. The soil is incredibly fertile. There are real reasons to be here.',
+    discuss:'The Lower Terrace floods most years, yet families still farm and live here. What would it take for you to leave a place where you were born and your family is buried?',
+    floodMult:1.40, plotZ:2.0, get baseY(){ return terrainH(0, this.plotZ); } },
+  { id:5, name:'Riverside Plot', color:'#F44336', emoji:'🌊',
+    desc:'Right on the flood plain. Highest risk — often the only available plot for new arrivals.',
+    narrative:'You are on the edge of the river bank. This land floods first, floods hard, and stays flooded longest. Many families here did not choose this spot — it was the only land they could afford or access when they arrived.',
+    discuss:'Zone 5 is the most dangerous but often home to the most vulnerable residents. How does poverty and lack of land rights force people into risky locations? What could change this?',
+    floodMult:1.85, plotZ:4.5, get baseY(){ return terrainH(0, this.plotZ); } },
+];
 
-<!-- ── PLOT ASSIGNMENT ── -->
-<div id="as" class="scr">
-  <div class="panel" style="max-width:820px">
-    <div class="pbadge">Step 2 of 2</div>
-    <h2 class="ptitle">Plots Assigned</h2>
-    <p class="psub">Closer to the river = higher flood risk. Coins carry over between rounds.</p>
-    <div id="aGrid" class="agrid"></div>
-    <div id="acePreview" style="margin-bottom:1.5rem"></div>
-    <button class="sbtn" onclick="startBuilding()">Start Building →</button>
-  </div>
-</div>
+const LEVELS = [
+  { id:1, name:'Knee-Level Flood', color:'#2B7DBF', emoji:'💧', floodH:0.40, desc:'Water rises to top of foundation' },
+  { id:2, name:'Waist-Level Flood', color:'#1a5fa0', emoji:'🌊', floodH:1.0, desc:'Water rises 1 block above ground' },
+  { id:3, name:'Roof-Level Flood', color:'#6a0f3a', emoji:'🌀', floodH:2.2, desc:'Catastrophic — water reaches the roof' },
+];
 
-<!-- ── BUILD SCREEN ── -->
-<div id="bs" class="scr">
-  <div id="bLeft">
-    <div id="lHud" class="lhud"></div>
-    <div id="bHint" class="canvas-hint">Drag material cards onto your plot — ghost block shows where it will land</div>
-  </div>
-  <div id="bRight">
-    <div class="phead">
-      <div class="phead-row">
-        <span id="bRound" class="btag"></span>
-        <span id="bPlot" style="font-size:12px;font-weight:600"></span>
+const MATS = {
+  foundation:{ label:'Foundation', emoji:'🪨', opts:[
+    { id:'f1', name:'Concrete',       cost:4, emoji:'🏗️', hex:0x78909c, col:'rgba(120,144,156,0.15)', border:'rgba(120,144,156,0.5)' },
+    { id:'f2', name:'Stone & Mud',    cost:2, emoji:'🪨', hex:0x8d6e63, col:'rgba(141,110,99,0.15)',  border:'rgba(141,110,99,0.5)'  },
+    { id:'f3', name:'Mud Plinth',     cost:1, emoji:'🌿', hex:0xbcaaa4, col:'rgba(188,170,164,0.15)', border:'rgba(188,170,164,0.5)' },
+  ]},
+  wall:{ label:'Walls', emoji:'🧱', opts:[
+    { id:'w1', name:'Brick & Cement', cost:4, emoji:'🧱', hex:0xe57373, col:'rgba(229,115,115,0.15)', border:'rgba(229,115,115,0.5)' },
+    { id:'w2', name:'Bamboo & Mud',   cost:2, emoji:'🌾', hex:0xdce775, col:'rgba(220,231,117,0.15)', border:'rgba(220,231,117,0.5)' },
+    { id:'w3', name:'Mud Walls',      cost:1, emoji:'🟫', hex:0xa1887f, col:'rgba(161,136,127,0.15)', border:'rgba(161,136,127,0.5)' },
+  ]},
+  roof:{ label:'Roof', emoji:'🏠', opts:[
+    { id:'r1', name:'Concrete Roof',  cost:4, emoji:'🏛️', hex:0x546e7a, col:'rgba(84,110,122,0.15)',  border:'rgba(84,110,122,0.5)'  },
+    { id:'r2', name:'Metal Sheets',   cost:2, emoji:'⚙️', hex:0x90a4ae, col:'rgba(144,164,174,0.15)', border:'rgba(144,164,174,0.5)' },
+    { id:'r3', name:'Thatch Roof',    cost:1, emoji:'🌿', hex:0xcddc39, col:'rgba(205,220,57,0.15)',   border:'rgba(205,220,57,0.5)'  },
+  ]},
+};
+const ALL_MATS_FLAT = [...MATS.foundation.opts, ...MATS.wall.opts, ...MATS.roof.opts];
+
+const COMPAT = {
+  foundation:{ f1:['w1','w2','w3'], f2:['w1','w2','w3'], f3:['w2','w3'] },
+  wall:       { w1:['r1','r2','r3'], w2:['r2','r3'],      w3:['r2','r3']  },
+};
+const IMSG = { f3_w1:"Mud Plinth can't support Brick walls", w2_r1:"Bamboo walls can't hold Concrete roof", w3_r1:"Mud walls can't hold Concrete roof" };
+
+const ACE_POOL = [
+  { id:'a1', name:'Sandbag Wall',      emoji:'🛡️', desc:'Flood treated as one level lower' },
+  { id:'a2', name:'Drainage Channel',  emoji:'💧', desc:'Walls protected regardless of flood' },
+  { id:'a3', name:'Waterproof Coat',   emoji:'🪵', desc:'Walls treated one tier stronger' },
+  { id:'a4', name:'Foundation Shield', emoji:'🏗️', desc:'Foundation takes no damage' },
+  { id:'a5', name:'Emergency Repair',  emoji:'🔧', desc:'After flood: damage reduced by one tier' },
+  { id:'a6', name:'Elevated Platform', emoji:'🏠', desc:'Foundation treated one tier stronger' },
+];
+
+// Damage probability tables [safe%, repair%, collapse%] at flood levels 0,1,2
+const FDMG = {
+  f1:[[82,14,4],[55,33,12],[32,44,24]],
+  f2:[[72,22,6],[38,42,20],[14,44,42]],
+  f3:[[66,26,8],[22,44,34],[4,28,68]],
+};
+const WDMG = {
+  w1:[[76,19,5],[50,36,14],[26,48,26]],
+  w2:[[64,29,7],[34,42,24],[14,44,42]],
+  w3:[[36,36,28],[12,34,54],[3,17,80]],
+};
+const RDMG = { r1:[72,23,5], r2:[46,41,13], r3:[14,41,45] };
+const DMG_LABELS = ['✅ Safe','🔧 Repairs Needed','☠️ Collapsed'];
+const DMG_COLORS = ['#6BCB77','#FFD166','#EF476F'];
+
+const FH=0.38, WH=1.0, PEAK=0.60, MAX_R=4;
+const FREE_HOUSE_BONUS = 3; // Coins representing inherited home value
+
+// ═══════════════════════════════════════════════════════════════════
+// SCENARIO NARRATIVES
+// ═══════════════════════════════════════════════════════════════════
+
+const F_SCENARIOS = {
+  f1:{ 0:"Concrete proved its worth — the sealed, dense base repelled the flood without a single crack.",
+       1:"Concrete is strong, but sustained water pressure found micro-cracks in the footing. Structural integrity holds, but waterproofing is urgently needed before next season.",
+       2:"A catastrophic foundation failure. The soil beneath your plot shifted under prolonged water pressure, undermining the footing and shearing the base from its anchor." },
+  f2:{ 0:"The stone-and-mud held admirably — the traditional technique of tight stone-packing meant water found no easy path through.",
+       1:"Mud mortar between the stones softened and crumbled in the wetter patches. The stones still stand, but the joints need re-pointing before they lose coherence.",
+       2:"Water dissolved every mud joint. Without mortar, the stone assembly lost all coherence and the foundation collapsed into scattered rubble." },
+  f3:{ 0:"A narrow escape for the mud plinth — the flood passed quickly enough that the earthen base didn't fully saturate. Next time may not be so kind.",
+       1:"Mud and water are old enemies. The plinth has swelled, cracked, and settled unevenly — a textbook flood scar. Half of it needs complete reconstruction.",
+       2:"The mud plinth dissolved into the floodwater almost as if it was always part of the river. There is nothing left to build on." },
+};
+const W_SCENARIOS = {
+  w1:{ 0:"Brick-and-cement walls stood firm — sealed surfaces and rigid structure left floodwater with nowhere to enter.",
+       1:"Some mortar joints gave way under water pressure, and a lower section bowed slightly outward. The wall stands but needs re-pointing and reinforcement.",
+       2:"An unexpected failure: the bricks absorbed water through unsealed joints faster than the mortar could compensate. Lateral hydrostatic pressure caused a section to buckle and collapse." },
+  w2:{ 0:"Bamboo's natural flexibility worked in your favour — the stalks bent rather than cracked, and the short flood duration kept the mud infill intact.",
+       1:"The mud plaster between bamboo poles washed off, leaving the structural frame exposed and vulnerable. The bamboo itself survived, but re-plastering is essential.",
+       2:"The mud infill dissolved completely, leaving bamboo poles with no lateral support. The frame slumped sideways and the walls came down in sections." },
+  w3:{ 0:"Mud walls in this flood — a small miracle, or exceptional earthen compaction. The flood passed quickly and the walls dried out before they fully saturated.",
+       1:"Mud walls took heavy damage: large sections have slumped, cracked, or been scoured away. You'll need to rebuild most of the wall surfaces before the structure is liveable.",
+       2:"As the floodwater rose, so did the water content of your walls. They didn't collapse suddenly — they melted. Classic mud-wall failure, watched by every family in the village." },
+};
+
+function generateScenarios(player, lvlIdx, result, zone) {
+  const h = player.house;
+  const lvl = LEVELS[lvlIdx];
+  const stories = [];
+  // Zone context
+  stories.push({ icon: zone.emoji, label: `Your plot — ${zone.name}`, col: zone.color,
+    text: lvlIdx === 0
+      ? `Even at knee-level, your Zone ${zone.id} location matters. ${zone.id >= 4 ? 'Your riverside plot means water reached you with full momentum from upstream.' : zone.id <= 2 ? 'Your elevation gave floodwater less energy by the time it reached your door.' : 'Mid-village plots see average flood conditions — no special advantage or disadvantage.'}`
+      : `Zone ${zone.id} ${zone.name}: during a ${lvl.name.toLowerCase()}, your location multiplies risk by ${zone.floodMult}×. ${zone.id >= 4 ? 'Being close to the river means you are hit first, hardest, and longest.' : zone.id <= 2 ? 'Your elevation is your biggest asset — water flows away from your plot.' : 'You experience the "typical" flood impact that most village houses face.'}`,
+    outcome: null
+  });
+  // Foundation
+  if (h.fMat) stories.push({ icon:'🪨', label:`Foundation — ${h.fMat.name}`, col: DMG_COLORS[result.fDmg],
+    text: F_SCENARIOS[h.fMat.id][result.fDmg], outcome: result.fDmg });
+  // Walls
+  if (h.wMat && result.fDmg < 2) stories.push({ icon:'🧱', label:`Walls — ${h.wMat.name}`, col: DMG_COLORS[result.wDmg],
+    text: result.fDmg === 2 ? 'Foundation collapse brought the walls down with it — there was no chance for them to resist independently.'
+      : W_SCENARIOS[h.wMat.id][result.wDmg], outcome: result.wDmg });
+  // Stacking note
+  if (h.stacked && h.fCount > 1 && lvlIdx > 0) {
+    const safeFloors = Array.from({length:h.fCount},(_,fl)=>FH+fl*WH).filter(b=>b>=lvl.floodH).length;
+    if (safeFloors > 0) stories.push({ icon:'🏠', label:'Stacked Design', col:'#90CAF9',
+      text: `Your stacked layout lifted ${safeFloors} floor(s) above the flood line — the upper storey remained dry while the ground floor flooded. This is one of the oldest strategies in flood-adapted architecture.`,
+      outcome: null });
+  }
+  // Ace notes
+  (player.playedAces||[]).forEach(aid => {
+    const a = ACE_POOL.find(x => x.id === aid);
+    if (a) stories.push({ icon:a.emoji, label:`Ace Card: ${a.name}`, col:'#FFD166', text: `You played ${a.name} — ${a.desc.toLowerCase()}. This shifted the damage probabilities in your favour for this flood round.`, outcome: null });
+  });
+  return stories;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// ELDER DIALOGUE
+// ═══════════════════════════════════════════════════════════════════
+
+const ELDER_LINES = {
+  roll_r1: "Before you roll — remember, your grandfather's old mud hut is already yours. Think of these coins as your chance to improve it.",
+  roll_r2: "The second flood is always harder. Whatever survived the first round is now stressed. Think carefully about what to reinforce.",
+  roll_r3: "Third flood. What has the river taught you? Spend wisely — there is no round four to recover from.",
+  build_r1_zone5: "Building on the riverside is a daily negotiation with the water. Every choice you make here has to be justified to the next flood.",
+  build_r1_zone1: "High ground like yours gives you options that lower families don't have. Use that advantage.",
+  build_r1_generic: "Mud costs little and collapses easily. Concrete costs much and holds. Most families in real villages cannot afford concrete — what do you think they do?",
+  build_r2_damaged: "Floods strip away what we pretend is permanent. Rebuild thinking about the next flood, not comfort for calm days.",
+  flood_r1: "Watch the water rise. Notice how it finds the lowest ground first.",
+  flood_r2: "A stronger flood now. Does your house from last round feel more or less confident now?",
+  flood_r3: "The worst flood. In reality, a flood this severe happens once in a generation — but climate patterns are changing those timescales.",
+  damage_safe: "The house held. But don't mistake survival for safety — the next flood might be worse, or the soil might have shifted in ways you cannot see.",
+  damage_collapsed: "Complete collapse. In reality, this family has lost everything — documents, food stores, tools, memories. Not just walls.",
+};
+
+function getElderLine(key) { return ELDER_LINES[key] || ''; }
+
+// ═══════════════════════════════════════════════════════════════════
+// UTILS
+// ═══════════════════════════════════════════════════════════════════
+
+function weightedRandom(probs) {
+  const r = Math.random()*100; let s = 0;
+  for(let i=0;i<probs.length;i++){s+=probs[i];if(r<s)return i;}
+  return probs.length-1;
+}
+
+function applyZoneMult(probs, mult) {
+  if(mult === 1.0) return [...probs];
+  const shift = (mult - 1.0) * 22;
+  let [safe, repair, collapse] = probs;
+  collapse = Math.max(0, Math.min(98, collapse + shift));
+  safe     = Math.max(0, Math.min(98, safe - shift * 0.75));
+  repair   = Math.max(0, 100 - collapse - safe);
+  return [safe, repair, collapse];
+}
+
+function rollDamage(player, lvlIdx, aces) {
+  const h = player.house;
+  if(!h.fMat||!h.wMat||!h.rMat||h.fCount===0) return {fDmg:2,wDmg:2,rDmg:2,overall:2,notes:[]};
+  const zone = RISK_ZONES[player.zone-1];
+  const notes = [];
+  let fProbs = applyZoneMult([...FDMG[h.fMat.id][lvlIdx]], zone.floodMult);
+  let wProbs = applyZoneMult([...WDMG[h.wMat.id][lvlIdx]], zone.floodMult);
+  let rProbs = lvlIdx===2 ? applyZoneMult([...RDMG[h.rMat.id]], zone.floodMult) : [90,8,2];
+  const aPlayed = aces || [];
+  if(aPlayed.includes('a1')){ const li=Math.max(0,lvlIdx-1); fProbs=applyZoneMult([...FDMG[h.fMat.id][li]],zone.floodMult); wProbs=applyZoneMult([...WDMG[h.wMat.id][li]],zone.floodMult); notes.push('🛡️ Sandbag Wall reduced flood severity'); }
+  if(aPlayed.includes('a4')){ fProbs=[100,0,0]; notes.push('🏗️ Foundation Shield: foundation fully protected'); }
+  if(aPlayed.includes('a2')){ wProbs=applyZoneMult([...WDMG[h.wMat.id][0]],zone.floodMult); notes.push('💧 Drainage Channel: walls assessed at flood level 1'); }
+  if(aPlayed.includes('a3')){ const better=['w1','w2','w3']; const bi=Math.max(0,better.indexOf(h.wMat.id)-1); wProbs=applyZoneMult([...WDMG[better[bi]][lvlIdx]],zone.floodMult); notes.push('🪵 Waterproof Coat: walls treated as stronger material'); }
+  if(aPlayed.includes('a6')){ const better=['f1','f2','f3']; const bi=Math.max(0,better.indexOf(h.fMat.id)-1); fProbs=applyZoneMult([...FDMG[better[bi]][lvlIdx]],zone.floodMult); notes.push('🏠 Elevated Platform: foundation treated as stronger material'); }
+  // Stacking benefit
+  const safeFloors = h.stacked ? Array.from({length:h.fCount},(_,fl)=>FH+fl*WH).filter(b=>b>=LEVELS[lvlIdx].floodH).length : 0;
+  if(safeFloors>0){ wProbs=[Math.min(95,wProbs[0]+25),wProbs[1],Math.max(0,wProbs[2]-25)]; notes.push(`Stacking lifted ${safeFloors} floor(s) above flood — wall damage reduced`); }
+  let fDmg=weightedRandom(fProbs), wDmg=weightedRandom(wProbs), rDmg=weightedRandom(rProbs);
+  if(fDmg===2){ wDmg=2; notes.push('Foundation collapsed → walls lost their support and fell'); }
+  else if(fDmg===1){ const wShifted=wProbs.map((v,i)=>i===0?Math.floor(v*0.55):i===2?v+Math.floor(wProbs[0]*0.45):v); wDmg=weightedRandom(wShifted); notes.push('Weakened foundation increased wall failure risk'); }
+  const overall=Math.max(fDmg,wDmg,lvlIdx===2?rDmg:0);
+  return {fDmg,wDmg,rDmg:lvlIdx===2?rDmg:0,overall,notes};
+}
+
+function getIncompat(cat,optId,fMat,wMat){
+  if(cat==='wall'&&fMat){const a=COMPAT.foundation[fMat.id];if(a&&!a.includes(optId))return IMSG[fMat.id+'_'+optId]||'Incompatible';}
+  if(cat==='roof'&&wMat){const a=COMPAT.wall[wMat.id];if(a&&!a.includes(optId))return IMSG[wMat.id+'_'+optId]||'Incompatible';}
+  return null;
+}
+function matById(id){ return ALL_MATS_FLAT.find(m=>m.id===id); }
+function randomAces(){
+  const pool=[...ACE_POOL];
+  const a=pool.splice(Math.floor(Math.random()*pool.length),1)[0];
+  const b=pool.splice(Math.floor(Math.random()*pool.length),1)[0];
+  return[a,b];
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// THREE.JS VILLAGE SCENE — 8° slope, rich graphics
+// ═══════════════════════════════════════════════════════════════════
+
+function makeScene(canvas, W, H) {
+  const renderer = new THREE.WebGLRenderer({canvas, antialias:true});
+  renderer.setSize(W, H, false);
+  renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+  const scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x7bb8d4);
+  scene.fog = new THREE.Fog(0xa8cfe0, 28, 70);
+
+  // ── Camera ──────────────────────────────────────────────────────
+  const cam = new THREE.PerspectiveCamera(40, W/H, 0.1, 200);
+  const sph = {th: Math.PI*0.18, ph: Math.PI*0.26, r: 17, tx: 0, ty: 2.0};
+  const syncCam = () => {
+    cam.position.set(
+      sph.tx + sph.r * Math.sin(sph.ph) * Math.sin(sph.th),
+      sph.r  * Math.cos(sph.ph) + sph.ty,
+      sph.r  * Math.sin(sph.ph) * Math.cos(sph.th)
+    );
+    cam.lookAt(sph.tx, sph.ty, 0);
+  };
+  syncCam();
+
+  // ── Lighting ─────────────────────────────────────────────────────
+  // Hemisphere: warm sky above, cool earth below
+  const hemi = new THREE.HemisphereLight(0xd4eeff, 0x6b8c42, 0.55);
+  scene.add(hemi);
+  // Main sun — low angle from upper-left (morning light)
+  const sun = new THREE.DirectionalLight(0xfff5c8, 1.15);
+  sun.position.set(-12, 22, 6);
+  sun.castShadow = true;
+  sun.shadow.mapSize.set(2048, 2048);
+  sun.shadow.camera.near = 0.5;
+  sun.shadow.camera.far  = 80;
+  sun.shadow.camera.left = sun.shadow.camera.bottom = -22;
+  sun.shadow.camera.right = sun.shadow.camera.top   =  22;
+  sun.shadow.bias = -0.001;
+  scene.add(sun);
+  // Soft fill from river (reflected light off water)
+  const riverFill = new THREE.DirectionalLight(0x90c8ff, 0.22);
+  riverFill.position.set(0, 4, 14);
+  scene.add(riverFill);
+
+  // ── Skybox: gradient dome ─────────────────────────────────────────
+  const skyGeo = new THREE.SphereGeometry(90, 16, 8);
+  const skyMat = new THREE.ShaderMaterial({
+    side: THREE.BackSide,
+    uniforms: { topColor:{value:new THREE.Color(0x3a7fbf)}, botColor:{value:new THREE.Color(0xa8cfe0)} },
+    vertexShader: `varying float vY; void main(){ vY=position.y; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }`,
+    fragmentShader: `varying float vY; uniform vec3 topColor,botColor; void main(){ float t=clamp(vY/60.0,0.0,1.0); gl_FragColor=vec4(mix(botColor,topColor,t),1.0); }`
+  });
+  scene.add(new THREE.Mesh(skyGeo, skyMat));
+
+  // ── Terrain ───────────────────────────────────────────────────────
+  // Multi-material slope: grass (upper), scrub grass (mid), sandy loam (lower)
+  const tW=50, tD=36, tSegsX=48, tSegsZ=36;
+  const tGeo = new THREE.PlaneGeometry(tW, tD, tSegsX, tSegsZ);
+  tGeo.rotateX(-Math.PI/2);
+  const tPos  = tGeo.attributes.position;
+  const colors = [];
+  const grassHigh=[0.34,0.56,0.25], grassMid=[0.42,0.60,0.28], grassLow=[0.50,0.62,0.25], loam=[0.66,0.56,0.32];
+  for(let i=0;i<tPos.count;i++){
+    const x=tPos.getX(i), z=tPos.getZ(i);
+    const y = terrainH(x,z);
+    tPos.setY(i,y);
+    // colour by slope height
+    const t = Math.min(1, Math.max(0, y / 1.8));
+    const c = t>0.65 ? grassHigh : t>0.35 ? grassMid : t>0.12 ? grassLow : loam;
+    // darken in shadows (north-facing patches)
+    const shade = 0.88 + Math.sin(x*0.7+z*0.5)*0.12;
+    colors.push(c[0]*shade, c[1]*shade, c[2]*shade);
+  }
+  tGeo.setAttribute('color', new THREE.Float32BufferAttribute(colors,3));
+  tGeo.computeVertexNormals();
+  const tMesh = new THREE.Mesh(tGeo, new THREE.MeshLambertMaterial({vertexColors:true}));
+  tMesh.receiveShadow = true;
+  scene.add(tMesh);
+
+  // ── Terrace retaining walls (stone ledges between zones) ──────────
+  const wallZs  = [-3.6, -1.6, 0.9, 3.2];   // between each zone pair
+  const wallCols = [0x8a7a5e, 0x9e8c6a, 0xa89470, 0xb09a74];
+  wallZs.forEach((wz, wi) => {
+    const wHeight = 0.22;
+    const wGeo = new THREE.BoxGeometry(14, wHeight, 0.28);
+    const by   = terrainH(0, wz);
+    const wall = new THREE.Mesh(wGeo, new THREE.MeshLambertMaterial({color: wallCols[wi]}));
+    wall.position.set(0, by + wHeight/2 - 0.05, wz);
+    wall.castShadow = wall.receiveShadow = true;
+    scene.add(wall);
+    // stone texture: small darker blocks along wall
+    for(let bx=-6; bx<6; bx+=0.88){
+      const bk = new THREE.Mesh(
+        new THREE.BoxGeometry(0.82, wHeight+0.01, 0.26),
+        new THREE.MeshLambertMaterial({color: bx%2===0 ? wallCols[wi]-0x111111 : wallCols[wi]+0x080808})
+      );
+      bk.position.set(bx+0.44, by+wHeight/2-0.04, wz);
+      scene.add(bk);
+    }
+  });
+
+  // ── Stone path (winding down slope) ──────────────────────────────
+  const pathPts = [-7,-5,-3.5,-2,-0.5,1,2.5,4,5.5].map((z,i)=> {
+    const x = Math.sin(i*0.9)*0.7;
+    return {x, z};
+  });
+  pathPts.forEach((pt, i) => {
+    if(i===0) return;
+    const prev = pathPts[i-1];
+    for(let t=0; t<=1; t+=0.18){
+      const px = prev.x + (pt.x-prev.x)*t;
+      const pz = prev.z + (pt.z-prev.z)*t;
+      const py = terrainH(px, pz);
+      // Irregular stone slab
+      const sw = 0.55+Math.random()*0.25, sd = 0.42+Math.random()*0.18;
+      const stone = new THREE.Mesh(
+        new THREE.BoxGeometry(sw, 0.06, sd),
+        new THREE.MeshLambertMaterial({color: 0xb8a882})
+      );
+      stone.position.set(px + (Math.random()-0.5)*0.12, py+0.02, pz);
+      stone.rotation.y = (Math.random()-0.5)*0.3;
+      stone.receiveShadow = true;
+      scene.add(stone);
+    }
+  });
+
+  // ── River bank (sandy loam strip) ────────────────────────────────
+  const bankGeo = new THREE.PlaneGeometry(48, 5, 24, 4);
+  bankGeo.rotateX(-Math.PI/2);
+  const bankPos = bankGeo.attributes.position;
+  for(let i=0;i<bankPos.count;i++){
+    bankPos.setY(i, terrainH(bankPos.getX(i), bankPos.getZ(i))+0.01);
+  }
+  bankGeo.computeVertexNormals();
+  scene.add(new THREE.Mesh(bankGeo, new THREE.MeshLambertMaterial({color:0xc8a96a})));
+
+  // ── River ─────────────────────────────────────────────────────────
+  // Deep base
+  const riverDeep = new THREE.Mesh(
+    new THREE.PlaneGeometry(50,12),
+    new THREE.MeshLambertMaterial({color:0x1a5990, transparent:true, opacity:0.95})
+  );
+  riverDeep.rotation.x = -Math.PI/2;
+  riverDeep.position.set(0, -0.05, RIVER_Z+5.5);
+  scene.add(riverDeep);
+  // Surface shimmer layer
+  const riverSurf = new THREE.Mesh(
+    new THREE.PlaneGeometry(50,12),
+    new THREE.MeshBasicMaterial({color:0x4499cc, transparent:true, opacity:0.35})
+  );
+  riverSurf.rotation.x = -Math.PI/2;
+  riverSurf.position.set(0, 0.02, RIVER_Z+5.5);
+  scene.add(riverSurf);
+  // Animated ripple lines
+  const ripples = Array.from({length:14}, (_, i) => {
+    const isWide = i%3===0;
+    const m = new THREE.Mesh(
+      new THREE.PlaneGeometry(isWide?0.12:0.05, 10+Math.random()*2),
+      new THREE.MeshBasicMaterial({color:0xffffff, transparent:true, opacity: isWide?0.12:0.07})
+    );
+    m.rotation.x = -Math.PI/2;
+    m.position.set(-14 + i*2.1, 0.03, RIVER_Z+5.5 + (Math.random()-0.5)*3);
+    scene.add(m);
+    return m;
+  });
+  // Gravel/pebble strip at water's edge
+  for(let i=0;i<35;i++){
+    const gx = (Math.random()-0.5)*44;
+    const pebble = new THREE.Mesh(
+      new THREE.SphereGeometry(0.06+Math.random()*0.08, 5, 4),
+      new THREE.MeshLambertMaterial({color: 0xb8a88a})
+    );
+    pebble.scale.y = 0.4;
+    pebble.position.set(gx, 0.04, RIVER_Z+0.3+Math.random()*0.8);
+    scene.add(pebble);
+  }
+
+  // ── Zone plot markers ──────────────────────────────────────────────
+  RISK_ZONES.forEach(z => {
+    const col = parseInt(z.color.replace('#',''), 16);
+    const by  = terrainH(0, z.plotZ);
+    // Stake
+    const stake = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.05, 0.07, 1.0, 7),
+      new THREE.MeshLambertMaterial({color: col})
+    );
+    stake.position.set(-6.5, by+0.5, z.plotZ);
+    scene.add(stake);
+    // Flag
+    const flag = new THREE.Mesh(
+      new THREE.PlaneGeometry(0.45, 0.28),
+      new THREE.MeshBasicMaterial({color: col, side:THREE.DoubleSide})
+    );
+    flag.position.set(-6.2, by+1.05, z.plotZ);
+    scene.add(flag);
+    // Ground ring
+    const ring = new THREE.Mesh(
+      new THREE.TorusGeometry(0.30, 0.045, 6, 14),
+      new THREE.MeshBasicMaterial({color: col, transparent:true, opacity:0.55})
+    );
+    ring.rotation.x = Math.PI/2;
+    ring.position.set(0, by+0.02, z.plotZ);
+    scene.add(ring);
+  });
+
+  // ── Helper: add a tree ─────────────────────────────────────────────
+  const addTree = (x, z, type) => {
+    const by = terrainH(x, z);
+    if(type === 'palm') {
+      // Palm / coconut — tall curved trunk, fronds
+      const tH = 1.8+Math.random()*0.6;
+      const trunk = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.06, 0.11, tH, 7),
+        new THREE.MeshLambertMaterial({color:0x8B6914})
+      );
+      trunk.position.set(x, by+tH/2, z);
+      trunk.castShadow = true;
+      scene.add(trunk);
+      // 5 fronds radiating outward
+      for(let f=0;f<5;f++){
+        const angle = (f/5)*Math.PI*2;
+        const frond = new THREE.Mesh(
+          new THREE.PlaneGeometry(0.18, 1.1),
+          new THREE.MeshLambertMaterial({color:0x3a7d22, side:THREE.DoubleSide})
+        );
+        frond.position.set(x+Math.cos(angle)*0.55, by+tH+0.1, z+Math.sin(angle)*0.55);
+        frond.rotation.z = angle + Math.PI/2;
+        frond.rotation.x = -0.5;
+        scene.add(frond);
+      }
+      // Coconuts (small brown spheres)
+      for(let c=0;c<3;c++){
+        const coc = new THREE.Mesh(new THREE.SphereGeometry(0.1,6,5),
+          new THREE.MeshLambertMaterial({color:0x6b4c1e}));
+        coc.position.set(x+(Math.random()-0.5)*0.25, by+tH-0.05, z+(Math.random()-0.5)*0.25);
+        scene.add(coc);
+      }
+    } else if(type === 'banana') {
+      // Banana plant — thick short trunk, wide leaves
+      const trunk = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.12, 0.16, 0.9, 7),
+        new THREE.MeshLambertMaterial({color:0x7a9a3a})
+      );
+      trunk.position.set(x, by+0.45, z);
+      scene.add(trunk);
+      for(let l=0;l<4;l++){
+        const angle = (l/4)*Math.PI*2;
+        const leaf = new THREE.Mesh(
+          new THREE.PlaneGeometry(0.28, 1.3),
+          new THREE.MeshLambertMaterial({color:0x4a8a1e, side:THREE.DoubleSide})
+        );
+        leaf.position.set(x+Math.cos(angle)*0.4, by+1.05, z+Math.sin(angle)*0.4);
+        leaf.rotation.z = angle + Math.PI/2;
+        leaf.rotation.x = -0.6;
+        scene.add(leaf);
+      }
+    } else {
+      // Standard mango/neem — trunk + layered canopy
+      const tH = 1.0+Math.random()*0.5;
+      const trunk = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.07, 0.13, tH, 7),
+        new THREE.MeshLambertMaterial({color:0x6b4c1e})
+      );
+      trunk.position.set(x, by+tH/2, z);
+      trunk.castShadow = true; scene.add(trunk);
+      const canopyData = [[0.80,0.55,0,0,0x2d6b18],[0.60,0.62,0.22,0.1,0x3a8a22],[0.52,0.60,-0.18,0.2,0x45a030]];
+      canopyData.forEach(([r,sy,dx,dz,c])=>{
+        const cn = new THREE.Mesh(new THREE.SphereGeometry(r,9,7),
+          new THREE.MeshLambertMaterial({color:c}));
+        cn.scale.set(1,sy,1);
+        cn.position.set(x+dx, by+tH+r*sy*0.5, z+dz);
+        cn.castShadow = true; scene.add(cn);
+      });
+    }
+  };
+
+  // Plant trees — mixed types scattered realistically
+  [[-7.5,-6,'palm'],[-9.5,-4,'tree'],[-11,-1,'tree'],[-9,1.5,'palm'],
+   [7,-5,'tree'],[9,-3,'tree'],[10.5,-0.5,'palm'],[8.5,2,'tree'],
+   [-5,-7,'banana'],[-3,-7.5,'banana'],[3,-7,'banana'],[5,-6.5,'tree'],
+   [-6,-3.5,'tree'],[6,-2.5,'tree'],[-4,2.5,'banana'],[5,3,'banana'],
+   [-10.5,0,'tree'],[10,0.5,'palm'],[-8,-7,'tree'],[8,-7,'palm'],
+   [-11,3,'tree'],[11,2,'tree']
+  ].forEach(([x,z,t])=> addTree(x,z,t));
+
+  // ── Village huts (more detailed) ───────────────────────────────────
+  const addHut = (x, z, scale, wallCol, roofCol, hasVeranda) => {
+    const by = terrainH(x, z);
+    const sc = scale;
+    // Plinth / base
+    const plinth = new THREE.Mesh(
+      new THREE.BoxGeometry(sc*1.15, sc*0.18, sc*1.15),
+      new THREE.MeshLambertMaterial({color:0xb09070})
+    );
+    plinth.position.set(x, by+sc*0.09, z);
+    plinth.castShadow = plinth.receiveShadow = true;
+    scene.add(plinth);
+    // Main wall body
+    const wall = new THREE.Mesh(
+      new THREE.BoxGeometry(sc, sc*1.1, sc),
+      new THREE.MeshLambertMaterial({color: wallCol})
+    );
+    wall.position.set(x, by+sc*0.18+sc*0.55, z);
+    wall.castShadow = wall.receiveShadow = true;
+    scene.add(wall);
+    // Door
+    const door = new THREE.Mesh(
+      new THREE.BoxGeometry(sc*0.22, sc*0.5, 0.04),
+      new THREE.MeshLambertMaterial({color:0x6b3a0e})
+    );
+    door.position.set(x, by+sc*0.18+sc*0.25, z+sc*0.51);
+    scene.add(door);
+    // Windows (two sides)
+    [[-0.25, 0.25]].forEach(wx => {
+      const win = new THREE.Mesh(
+        new THREE.BoxGeometry(sc*0.16, sc*0.14, 0.04),
+        new THREE.MeshLambertMaterial({color:0x90c0d8, transparent:true, opacity:0.75})
+      );
+      win.position.set(x+wx*sc, by+sc*0.18+sc*0.65, z+sc*0.51);
+      scene.add(win);
+    });
+    // Veranda post + overhang
+    if(hasVeranda) {
+      const post = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.04, 0.04, sc*0.8, 6),
+        new THREE.MeshLambertMaterial({color:0x7a5c2e})
+      );
+      post.position.set(x, by+sc*0.18+sc*0.4, z+sc*0.72);
+      scene.add(post);
+      const overhang = new THREE.Mesh(
+        new THREE.BoxGeometry(sc*0.9, 0.06, sc*0.32),
+        new THREE.MeshLambertMaterial({color:roofCol})
+      );
+      overhang.position.set(x, by+sc*0.18+sc*0.85, z+sc*0.66);
+      scene.add(overhang);
+    }
+    // Gabled roof
+    const rH = sc*0.65, rHW = sc*0.58, rD = sc*0.56;
+    const roofV = new Float32Array([
+      -rHW,0,rD, rHW,0,rD, 0,rH,rD,
+      -rHW,0,-rD, rHW,0,-rD, 0,rH,-rD
+    ]);
+    const roofI = [0,1,2, 3,5,4, 0,3,5, 0,5,2, 1,2,5, 1,5,4, 0,1,3, 1,4,3];
+    const rg = new THREE.BufferGeometry();
+    rg.setAttribute('position', new THREE.BufferAttribute(roofV,3));
+    rg.setIndex(roofI); rg.computeVertexNormals();
+    const rm = new THREE.Mesh(rg, new THREE.MeshLambertMaterial({color:roofCol, side:THREE.DoubleSide}));
+    rm.position.set(x, by+sc*0.18+sc*1.1, z);
+    rm.castShadow = true; scene.add(rm);
+    // Chimney / smoke stack
+    if(Math.random()>0.4){
+      const ch = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.05, 0.06, sc*0.35, 6),
+        new THREE.MeshLambertMaterial({color:0x9e7c5a})
+      );
+      ch.position.set(x+sc*0.2, by+sc*0.18+sc*1.1+sc*0.45, z-sc*0.1);
+      scene.add(ch);
+    }
+    // Compound wall segment (low boundary wall)
+    const cwall = new THREE.Mesh(
+      new THREE.BoxGeometry(sc*1.4, sc*0.25, 0.08),
+      new THREE.MeshLambertMaterial({color:0xb0956a})
+    );
+    cwall.position.set(x, by+sc*0.12, z+sc*0.82);
+    scene.add(cwall);
+  };
+
+  // Scatter huts along both sides of the path, respecting terrain zones
+  const hutData = [
+    [-6.5,-5.5,0.75,0xd4b07a,0x8b5e20,true],
+    [-8.5,-3,0.65,0xc8a87a,0x7a4e18,false],
+    [-7,-0.5,0.70,0xcbb882,0x906025,true],
+    [-8.5,2,0.60,0xe8d0a0,0x7a5018,false],
+    [6,-4.5,0.70,0xd0a870,0x855520,true],
+    [8,-2,0.65,0xc0946a,0x7a4018,false],
+    [7.5,1.5,0.68,0xd4c090,0x9a6828,true],
+    [-5,-8,0.55,0xb89060,0x704010,false],
+    [4.5,-7.5,0.58,0xcaa060,0x806020,false],
+    [9,-6,0.72,0xd8b880,0x8a5a1a,true],
+    [-5.5,3.5,0.60,0xc4a060,0x6a3a10,false],
+    [5.5,3,0.62,0xd0a860,0x7a4a15,false],
+  ];
+  hutData.forEach(h => addHut(...h));
+
+  // ── Paddy fields (lower terraces) ─────────────────────────────────
+  [[3.5,1.5,3.5,1.2],[4,3.8,2.5,0.8],[-3,1.8,2.8,1.0]].forEach(([fx,fz,fw,fd])=>{
+    const fy = terrainH(fx,fz);
+    // Field base
+    const field = new THREE.Mesh(
+      new THREE.PlaneGeometry(fw, fd, Math.round(fw*3), Math.round(fd*3)),
+      new THREE.MeshLambertMaterial({color:0x5a8a30})
+    );
+    field.rotation.x = -Math.PI/2;
+    field.position.set(fx, fy+0.01, fz);
+    scene.add(field);
+    // Row lines
+    for(let r=0;r<Math.floor(fd*4);r++){
+      const row = new THREE.Mesh(
+        new THREE.PlaneGeometry(fw, 0.04),
+        new THREE.MeshBasicMaterial({color:0x3a6818, transparent:true, opacity:0.7})
+      );
+      row.rotation.x = -Math.PI/2;
+      row.position.set(fx, fy+0.02, fz - fd/2 + (r/(fd*4))*fd);
+      scene.add(row);
+    }
+    // Field bund (raised edge)
+    const bund = new THREE.Mesh(
+      new THREE.BoxGeometry(fw+0.1, 0.1, 0.1),
+      new THREE.MeshLambertMaterial({color:0x8a6840})
+    );
+    bund.position.set(fx, fy+0.05, fz+fd/2);
+    scene.add(bund);
+  });
+
+  // ── Rocks and boulders ─────────────────────────────────────────────
+  const rockData = [
+    [-6,-2,0.28],[-5.5,-4,0.18],[-3.5,-6.5,0.22],[4,-4,0.20],[6.5,-6,0.32],
+    [-9,-6.5,0.38],[8.5,-5,0.25],[-10,-2,0.30],[3.5,3.5,0.15],[5.5,1.5,0.18],
+    [-4,4,0.12],[7.5,3.5,0.20],[2,-8,0.22],[-2,-8,0.26]
+  ];
+  rockData.forEach(([rx,rz,rs])=>{
+    const ry = terrainH(rx,rz);
+    const geo = new THREE.DodecahedronGeometry(rs, 0);
+    // Deform slightly
+    const pos = geo.attributes.position;
+    for(let i=0;i<pos.count;i++){
+      pos.setX(i, pos.getX(i)*(0.85+Math.random()*0.3));
+      pos.setY(i, pos.getY(i)*(0.6+Math.random()*0.4));
+      pos.setZ(i, pos.getZ(i)*(0.85+Math.random()*0.3));
+    }
+    geo.computeVertexNormals();
+    const rock = new THREE.Mesh(geo, new THREE.MeshLambertMaterial({
+      color: 0x888060 + Math.floor(Math.random()*0x101010)
+    }));
+    rock.position.set(rx, ry+rs*0.4, rz);
+    rock.rotation.y = Math.random()*Math.PI;
+    rock.castShadow = rock.receiveShadow = true;
+    scene.add(rock);
+  });
+
+  // ── Haystacks ─────────────────────────────────────────────────────
+  [[4.2,-2.8],[-5,-1.5],[-6.2,1.8],[7.5,-1]].forEach(([hx,hz])=>{
+    if(typeof hx !== 'number') return;
+    const hy = terrainH(hx,hz);
+    const base = new THREE.Mesh(new THREE.CylinderGeometry(0.3,0.38,0.35,10),
+      new THREE.MeshLambertMaterial({color:0xe8c840}));
+    base.position.set(hx,hy+0.175,hz); scene.add(base);
+    const top = new THREE.Mesh(new THREE.ConeGeometry(0.32,0.4,10),
+      new THREE.MeshLambertMaterial({color:0xd4b030}));
+    top.position.set(hx,hy+0.55,hz); scene.add(top);
+  });
+
+  // ── Simple cattle/goats ────────────────────────────────────────────
+  const addAnimal = (x,z,col) => {
+    const by = terrainH(x,z);
+    const body = new THREE.Mesh(new THREE.BoxGeometry(0.38,0.22,0.20),
+      new THREE.MeshLambertMaterial({color:col}));
+    body.position.set(x,by+0.22,z); scene.add(body);
+    const head = new THREE.Mesh(new THREE.BoxGeometry(0.14,0.14,0.12),
+      new THREE.MeshLambertMaterial({color:col}));
+    head.position.set(x+0.22,by+0.28,z); scene.add(head);
+    [[-0.12,-0.1],[0.12,-0.1],[-0.12,0.1],[0.12,0.1]].forEach(([lx,lz])=>{
+      const leg = new THREE.Mesh(new THREE.BoxGeometry(0.05,0.18,0.05),
+        new THREE.MeshLambertMaterial({color:col}));
+      leg.position.set(x+lx, by+0.09, z+lz); scene.add(leg);
+    });
+  };
+  [[-7.5,0.5,0xd0c0a0],[-5,0,0x888878],[6.8,-1,0xe8dcc8],[4,-1.5,0x605850],
+   [-6.5,-2,0xc8b898],[8,-3.5,0xd8ccc0]].forEach(([ax,az,ac])=> addAnimal(ax,az,ac));
+
+  // ── Well ──────────────────────────────────────────────────────────
+  const addWell = (x,z) => {
+    const by = terrainH(x,z);
+    const rim = new THREE.Mesh(new THREE.TorusGeometry(0.22,0.07,8,16),
+      new THREE.MeshLambertMaterial({color:0x9a8060}));
+    rim.rotation.x = Math.PI/2; rim.position.set(x,by+0.22,z); scene.add(rim);
+    const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.18,0.20,0.22,12),
+      new THREE.MeshLambertMaterial({color:0xb09070}));
+    shaft.position.set(x,by+0.11,z); scene.add(shaft);
+    // Crossbar
+    const cb = new THREE.Mesh(new THREE.CylinderGeometry(0.025,0.025,0.6,6),
+      new THREE.MeshLambertMaterial({color:0x7a5a2a}));
+    cb.rotation.z = Math.PI/2; cb.position.set(x,by+0.38,z); scene.add(cb);
+  };
+  addWell(-6.2,-1); addWell(6,-0.5);
+
+  // ── Bamboo fence posts (path borders) ──────────────────────────────
+  for(let fz=-7; fz<5; fz+=0.9){
+    [-0.9, 0.9].forEach(fx=>{
+      const fy = terrainH(fx,fz);
+      const post = new THREE.Mesh(new THREE.CylinderGeometry(0.03,0.035,0.55,5),
+        new THREE.MeshLambertMaterial({color:0xc8a838}));
+      post.position.set(fx, fy+0.28, fz); scene.add(post);
+    });
+  }
+
+  // ── Flood water ────────────────────────────────────────────────────
+  const water = new THREE.Mesh(
+    new THREE.BoxGeometry(60, 10, 50),
+    new THREE.MeshLambertMaterial({color:0x1255a0, transparent:true, opacity:0.60})
+  );
+  water.position.set(0, -10, 0); scene.add(water);
+  const wSurf = new THREE.Mesh(
+    new THREE.PlaneGeometry(60, 50),
+    new THREE.MeshBasicMaterial({color:0x3a88cc, transparent:true, opacity:0.42})
+  );
+  wSurf.rotation.x = -Math.PI/2; wSurf.position.set(0, -10, 0); scene.add(wSurf);
+
+  // ── Player plot meshes (cleared per round) ────────────────────────
+  const plotMeshes = [];
+  return {renderer, scene, cam, sph, syncCam, water, wSurf, ripples, plotMeshes,
+          autoRot:false, floodY:-10, targetH:0, flooding:false, onDone:null, animFrame:null};
+}
+
+function buildPlayerPlot(ts, player, damage) {
+  ts.plotMeshes.forEach(m=>{ts.scene.remove(m);if(m.geometry)m.geometry.dispose();if(m.material)m.material.dispose();});
+  ts.plotMeshes.length=0;
+  const h = player.house;
+  if(h.fCount===0)return;
+  const zone = RISK_ZONES[player.zone-1];
+  const plotX = 0, plotZ = zone.plotZ;
+  const baseY = terrainH(plotX, plotZ);
+  const dmg = damage||{fDmg:0,wDmg:0,rDmg:0};
+  const fCol = dmg.fDmg===2?0x333333:dmg.fDmg===1?0x666655:h.fMat?h.fMat.hex:0xbcaaa4;
+  const wCol = dmg.wDmg===2?0x333333:dmg.wDmg===1?0x666655:h.wMat?h.wMat.hex:0xa1887f;
+  const rCol = dmg.rDmg===2?0x333333:dmg.rDmg===1?0x666655:h.rMat?h.rMat.hex:0xcddc39;
+
+  const add = (geo,col,x,y,z) => {
+    const m = new THREE.Mesh(geo,new THREE.MeshLambertMaterial({color:col}));
+    m.position.set(plotX+x,baseY+y,plotZ+z); m.castShadow=m.receiveShadow=true;
+    ts.scene.add(m); ts.plotMeshes.push(m);
+  };
+  const ghost = (geo,x,y,z) => {
+    const m = new THREE.Mesh(geo.clone(),new THREE.MeshLambertMaterial({color:0x2B7DBF,transparent:true,opacity:0.12}));
+    m.position.set(plotX+x,baseY+y,plotZ+z); ts.scene.add(m); ts.plotMeshes.push(m);
+    const e = new THREE.LineSegments(new THREE.EdgesGeometry(geo),new THREE.LineBasicMaterial({color:0x2B7DBF,transparent:true,opacity:0.4}));
+    e.position.copy(m.position); ts.scene.add(e); ts.plotMeshes.push(e);
+  };
+  const mkRoof=(ry,hw,cx,isGhost,col)=>{
+    const hd=0.52,v=new Float32Array([-hw,ry,hd,hw,ry,hd,0,ry+PEAK,hd,-hw,ry,-hd,hw,ry,-hd,0,ry+PEAK,-hd]);
+    const ix=[0,1,2,3,5,4,0,3,5,0,5,2,1,2,5,1,5,4,0,1,3,1,4,3];
+    const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.BufferAttribute(v,3));g.setIndex(ix);g.computeVertexNormals();
+    const m=new THREE.Mesh(g,new THREE.MeshLambertMaterial({color:isGhost?0x2B7DBF:col,transparent:isGhost,opacity:isGhost?0.14:1,side:THREE.DoubleSide}));
+    m.position.set(plotX+cx,baseY,plotZ); ts.scene.add(m); ts.plotMeshes.push(m);
+  };
+  const addCrack=(x,y,z2)=>{
+    const m=new THREE.Mesh(new THREE.PlaneGeometry(0.75,0.75),new THREE.MeshBasicMaterial({color:0xFFD166,transparent:true,opacity:0.4,side:THREE.DoubleSide}));
+    m.position.set(plotX+x,baseY+y,plotZ+z2+0.5); ts.scene.add(m); ts.plotMeshes.push(m);
+  };
+  // Zone color ring under house
+  const zoneColor = parseInt(zone.color.replace('#','0x'));
+  const ring=new THREE.Mesh(new THREE.TorusGeometry(0.9,0.07,6,16),new THREE.MeshBasicMaterial({color:zoneColor,transparent:true,opacity:0.7}));
+  ring.rotation.x=Math.PI/2; ring.position.set(plotX,baseY+0.02,plotZ); ts.scene.add(ring); ts.plotMeshes.push(ring);
+
+  if(!h.stacked){
+    const cx=i=>-(h.fCount-1)*0.5+i;
+    for(let i=0;i<h.fCount;i++) add(new THREE.BoxGeometry(0.9,FH,0.9),fCol,cx(i),FH/2,0);
+    for(let i=0;i<h.fCount;i++){
+      if(i<h.wCount){add(new THREE.BoxGeometry(0.9,WH,0.9),wCol,cx(i),FH+WH/2,0);add(new THREE.BoxGeometry(0.18,0.14,0.04),0x81d4fa,cx(i),FH+WH*0.65,0.47);if(i===0)add(new THREE.BoxGeometry(0.2,0.4,0.04),0x6d4c21,cx(i),FH+0.2,0.47);if(dmg.wDmg===1)addCrack(cx(i),FH+WH*0.5,0);}
+      else ghost(new THREE.BoxGeometry(0.9,WH,0.9),cx(i),FH+WH/2,0);
+    }
+    for(let i=0;i<h.fCount;i++){
+      if(i<h.rCount)mkRoof(FH+WH,0.5,cx(i),false,rCol);
+      else if(i<h.wCount)mkRoof(FH+WH,0.5,cx(i),true,rCol);
+    }
+    if(dmg.fDmg===1)addCrack(0,FH*0.5,-0.1);
+  } else {
+    add(new THREE.BoxGeometry(1.3,FH,1.05),fCol,0,FH/2,0);
+    for(let fl=0;fl<h.fCount;fl++){
+      const base=FH+fl*WH;
+      if(fl>0) add(new THREE.BoxGeometry(1.22,0.07,0.98),fCol,0,base,0);
+      if(fl<h.wCount){
+        add(new THREE.BoxGeometry(1.22,WH,0.98),wCol,0,base+WH/2,0);
+        add(new THREE.BoxGeometry(0.18,0.14,0.04),0x81d4fa,0.18,base+WH*0.65,0.5);
+        add(new THREE.BoxGeometry(0.18,0.14,0.04),0x81d4fa,-0.18,base+WH*0.65,0.5);
+        if(fl===0)add(new THREE.BoxGeometry(0.2,0.4,0.04),0x6d4c21,0,FH+0.2,0.5);
+        if(dmg.wDmg===1)addCrack(0,base+WH*0.5,0);
+      } else ghost(new THREE.BoxGeometry(1.22,WH,0.98),0,base+WH/2,0);
+    }
+    const topY=FH+h.fCount*WH;
+    if(h.rCount>0)mkRoof(topY,0.68,0,false,rCol);
+    else if(h.wCount>0)mkRoof(topY,0.68,0,true,rCol);
+    if(dmg.fDmg===1)addCrack(0,FH*0.5,-0.05);
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// GAME STATE
+// ═══════════════════════════════════════════════════════════════════
+
+let G = {};
+function newGame(teamName, members, zoneId) {
+  const displayName = teamName;
+  G = {
+    teamName,
+    members: members.filter(m=>m.trim()),
+    zone: zoneId,
+    round: 1,
+    phase: 'roll',
+    player: {
+      name: teamName,
+      zone: zoneId,
+      coins: 0,
+      savedCoins: 0,
+      house: { fCount:1, wCount:1, rCount:1, fMat:matById('f3'), wMat:matById('w3'), rMat:matById('r3'), stacked:false },
+      aces: randomAces(),
+      damage: { fDmg:0, wDmg:0, rDmg:0, overall:0 },
+      playedAces: [],
+      roundLog: [],
+    },
+    pendingDmg: null,
+    floodResult: null,
+  };
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// APP STATE
+// ═══════════════════════════════════════════════════════════════════
+
+let screen = 'setup'; // setup | zoneReveal | game | end
+let tsRef = null, rafRef = null;
+let orb = {on:false,lx:0,ly:0};
+let autoRot = false;
+let dragging = null;
+let setupTeamName = '';
+let setupMembers = ['',''];  // 2–5 member names
+let pendingZone = null;
+let toastMsg = '', toastTimer = null;
+
+function toast(msg) {
+  toastMsg=msg;
+  if(toastTimer)clearTimeout(toastTimer);
+  const el=document.getElementById('toast-el');
+  if(el){el.textContent=msg;el.style.display='block';}
+  toastTimer=setTimeout(()=>{toastMsg='';const el=document.getElementById('toast-el');if(el)el.style.display='none';},2800);
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// RENDER DISPATCH
+// ═══════════════════════════════════════════════════════════════════
+
+function render() {
+  const root = document.getElementById('root');
+  if(screen==='setup')    { root.innerHTML=''; root.appendChild(renderSetup()); }
+  else if(screen==='zoneReveal') { root.innerHTML=''; root.appendChild(renderZoneReveal()); }
+  else if(screen==='game') { renderGame(); }
+  else { root.innerHTML=''; root.appendChild(renderEnd()); }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// SETUP SCREEN
+// ═══════════════════════════════════════════════════════════════════
+
+function renderSetup() {
+  const div = document.createElement('div');
+  div.className = 'screen setup-bg';
+  const canStart = setupTeamName.trim() && setupMembers.filter(m=>m.trim()).length >= 2;
+  div.innerHTML = `
+    <div class="setup-wrap">
+      <div class="village-deco">🏡 🌊 ⛰️</div>
+      <div class="setup-badge">A Team Learning Exercise</div>
+      <div class="setup-title">Flood &<br><span>Foundation</span></div>
+      <div class="setup-sub">Your team plays as a single village household navigating three monsoon seasons. Discuss every decision together — one person clicks, everyone decides.</div>
+      <div class="setup-card">
+        <div class="setup-label">Team Name</div>
+        <div class="name-row" style="margin-bottom:16px">
+          <input class="name-input" id="team-inp" placeholder="e.g. Group 3 · The Riverbanks…" maxlength="32" value="${setupTeamName}"/>
+        </div>
+        <div class="setup-label" style="margin-bottom:8px">Team Members <span style="color:rgba(243,237,213,0.3);font-weight:400;text-transform:none;letter-spacing:0">(2–5 people)</span></div>
+        <div id="member-list"></div>
+        ${setupMembers.length<5?`<button id="add-member" style="width:100%;padding:8px;border-radius:8px;border:1.5px dashed rgba(255,255,255,0.15);background:transparent;color:rgba(243,237,213,0.35);font-size:12px;font-weight:700;margin-bottom:4px">+ Add member</button>`:''}
+        <button class="start-btn" id="start-btn" ${canStart?'':'disabled'}>Enter the Village →</button>
       </div>
-      <div id="bName" class="pname"></div>
-      <div id="bSub" class="psub2"></div>
+      <div style="font-size:11px;color:rgba(243,237,213,0.3);text-align:center;max-width:340px;line-height:1.6">3 flood rounds · 1 shared plot per team · zone randomly assigned<br>Inspired by flood-adaptation challenges in South Asia</div>
     </div>
-    <div class="cbar">
-      <span class="clbl">Coins</span>
-      <span id="cVal" class="cval"></span>
-      <div id="cIcons"></div>
+  `;
+  // Render member rows
+  const list = div.querySelector('#member-list');
+  setupMembers.forEach((name,i)=>{
+    const row = document.createElement('div');
+    row.className = 'name-row';
+    row.style.cssText = 'margin-bottom:6px;gap:8px';
+    row.innerHTML = `
+      <div style="width:22px;height:22px;border-radius:50%;background:rgba(232,168,56,0.15);color:var(--amber);font-size:10px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0">${i+1}</div>
+      <input class="name-input" style="font-size:13px;padding:8px 12px" placeholder="Member ${i+1} name…" maxlength="20" value="${name}" data-idx="${i}"/>
+      ${setupMembers.length>2?`<button data-remove="${i}" style="background:rgba(239,71,111,0.12);border:none;border-radius:7px;color:var(--danger);padding:6px 9px;font-size:11px">✕</button>`:''}
+    `;
+    list.appendChild(row);
+  });
+  // Events
+  const teamInp = div.querySelector('#team-inp');
+  const startBtn = div.querySelector('#start-btn');
+  const refresh = () => { startBtn.disabled = !(div.querySelector('#team-inp').value.trim() && setupMembers.filter(m=>m.trim()).length>=2); };
+  teamInp.addEventListener('input',e=>{ setupTeamName=e.target.value; refresh(); });
+  div.querySelectorAll('input[data-idx]').forEach(inp=>{
+    inp.addEventListener('input',e=>{ setupMembers[+e.target.dataset.idx]=e.target.value; refresh(); });
+  });
+  div.querySelector('#add-member')&&div.querySelector('#add-member').addEventListener('click',()=>{ setupMembers.push(''); render(); });
+  div.querySelectorAll('[data-remove]').forEach(btn=>{
+    btn.addEventListener('click',e=>{ setupMembers.splice(+e.target.dataset.remove,1); render(); });
+  });
+  startBtn.addEventListener('click', doStart);
+  teamInp.addEventListener('keydown',e=>{ if(e.key==='Enter'&&canStart) doStart(); });
+  function doStart() {
+    if(!setupTeamName.trim()||setupMembers.filter(m=>m.trim()).length<2) return;
+    pendingZone = Math.ceil(Math.random()*5);
+    screen='zoneReveal'; render();
+  }
+  return div;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// ZONE REVEAL
+// ═══════════════════════════════════════════════════════════════════
+
+function renderZoneReveal() {
+  const z = RISK_ZONES[pendingZone-1];
+  const div = document.createElement('div');
+  div.className = 'screen zone-reveal';
+  const pips = Array.from({length:5},(_,i)=>`<div class="risk-pip" style="background:${i<pendingZone?z.color:'rgba(255,255,255,0.1)'}"></div>`).join('');
+  div.innerHTML = `
+    <div class="zone-card">
+      <div style="font-size:12px;color:rgba(243,237,213,0.4);letter-spacing:2px;text-transform:uppercase;margin-bottom:18px">The village council has assigned your plot…</div>
+      <span class="zone-emoji-big">${z.emoji}</span>
+      <div class="zone-num">Risk Zone ${pendingZone} of 5</div>
+      <div class="zone-name" style="color:${z.color}">${z.name}</div>
+      <div class="zone-risk-bar">${pips}</div>
+      <div class="zone-desc">${z.desc}</div>
+      <div class="zone-narrative">"${z.narrative}"</div>
+      <div class="zone-discuss"><strong>💬 Before you begin — discuss:</strong><br>${z.discuss}</div>
+      <button class="proceed-btn" id="begin-btn">Begin Building →</button>
     </div>
-    <div class="dice-sec">
-      <div style="display:flex;gap:10px">
-        <div id="d1" class="die">?</div>
-        <div id="d2" class="die">?</div>
+  `;
+  div.querySelector('#begin-btn').addEventListener('click',()=>{
+    newGame(setupTeamName, setupMembers, pendingZone);
+    screen='game'; render();
+    setTimeout(initScene, 80);
+  });
+  return div;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// SCENE INIT
+// ═══════════════════════════════════════════════════════════════════
+
+function initScene() {
+  const canvas = document.getElementById('game-canvas');
+  if(!canvas) return;
+  const W=canvas.clientWidth, H=canvas.clientHeight;
+  if(tsRef){ tsRef.renderer.dispose(); tsRef=null; }
+  tsRef = makeScene(canvas,W,H);
+  buildPlayerPlot(tsRef, G.player, G.player.damage);
+  focusOnPlot();
+  canvas.addEventListener('mousedown',e=>{ orb={on:true,lx:e.clientX,ly:e.clientY}; });
+  window.addEventListener('mousemove',e=>{ if(!orb.on||!tsRef)return; const dx=e.clientX-orb.lx,dy=e.clientY-orb.ly; tsRef.sph.th-=dx*0.007; tsRef.sph.ph=Math.max(0.08,Math.min(1.4,tsRef.sph.ph+dy*0.007)); tsRef.syncCam(); orb={on:true,lx:e.clientX,ly:e.clientY}; });
+  window.addEventListener('mouseup',()=>{ orb.on=false; });
+  const animate=()=>{
+    rafRef=requestAnimationFrame(animate);
+    if(!tsRef)return;
+    if(tsRef.autoRot){ tsRef.sph.th+=0.004; tsRef.syncCam(); }
+    tsRef.ripples.forEach(r=>{ r.position.x+=0.025; if(r.position.x>13)r.position.x=-13; });
+    if(tsRef.flooding){
+      tsRef.floodY=Math.min(tsRef.floodY+0.014,tsRef.targetH);
+      // Box is 8 units tall; set top face = floodY by offsetting centre down by 4
+      tsRef.water.position.y = tsRef.floodY - 4;
+      tsRef.wSurf.position.y = tsRef.floodY + 0.01;
+      tsRef.ripples.forEach(r=>{ r.position.y = tsRef.floodY + 0.02; });
+      if(tsRef.floodY>=tsRef.targetH){ tsRef.flooding=false; if(tsRef.onDone)tsRef.onDone(); }
+    }
+    tsRef.renderer.render(tsRef.scene,tsRef.cam);
+  };
+  animate();
+}
+
+function focusOnPlot(wide) {
+  if(!tsRef) return;
+  const zone = RISK_ZONES[G.player.zone-1];
+  const by   = terrainH(0, zone.plotZ);
+  if(wide){ tsRef.sph.tx=0; tsRef.sph.ty=1.2; tsRef.sph.r=22; tsRef.sph.ph=Math.PI*0.28; }
+  else     { tsRef.sph.tx=0; tsRef.sph.ty=by+1.8; tsRef.sph.r=14; tsRef.sph.ph=Math.PI*0.24; }
+  tsRef.syncCam();
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// GAME SCREEN SHELL
+// ═══════════════════════════════════════════════════════════════════
+
+function renderGame() {
+  const root = document.getElementById('root');
+  if(!root.querySelector('.game-screen')){ root.innerHTML=''; root.appendChild(buildGameShell()); }
+  updateGameUI();
+}
+
+function buildGameShell() {
+  const div = document.createElement('div');
+  div.className = 'screen game-screen';
+  div.innerHTML = `
+    <div class="left-panel">
+      <div class="topbar" id="topbar"></div>
+      <div class="canvas-wrap">
+        <canvas id="game-canvas"></canvas>
+        <button class="orbit-btn" id="orbit-btn">🔄 Orbit</button>
+        <div class="flood-label" id="flood-label">🌊 Flood rising…</div>
+        <div class="canvas-hint" id="canvas-hint"></div>
       </div>
-      <button id="rBtn" class="rbtn" onclick="rollDice()">Roll Dice</button>
-      <span id="rRes" class="rres"></span>
     </div>
-    <div id="buildStatus" class="build-status"></div>
-    <div id="hintbar" class="hintbar"></div>
-    <div class="palwrap">
-      <div class="pcat">Foundation</div><div id="pF" class="mcards"></div>
-      <div class="pcat">Wall</div><div id="pW" class="mcards"></div>
-      <div class="pcat">Roof</div><div id="pR" class="mcards"></div>
+    <div class="right-panel">
+      <div class="rp-header" id="rp-header"></div>
+      <div class="rp-scroll" id="rp-scroll"></div>
     </div>
-    <div class="conf">
-      <div class="stats">
-        <div class="stat"><span class="stat-l">Strength</span><span id="stH" class="stat-v">—</span></div>
-        <div class="stat"><span class="stat-l">Spent</span><span id="stC" class="stat-v">—</span></div>
-        <div class="stat"><span class="stat-l">Left</span><span id="stL" class="stat-v">—</span></div>
-      </div>
-      <button class="sbtn" style="width:100%" id="confirmBtn" onclick="confirmBuild()">Confirm Build →</button>
+    <div class="toast-msg" id="toast-el" style="display:none"></div>
+  `;
+  div.querySelector('#orbit-btn').onclick=()=>{ autoRot=!autoRot; if(tsRef)tsRef.autoRot=autoRot; div.querySelector('#orbit-btn').textContent=autoRot?'⏹ Stop':'🔄 Orbit'; };
+  return div;
+}
+
+function updateGameUI() {
+  const p = G.player;
+  const lvl = LEVELS[G.round-1];
+  const zone = RISK_ZONES[p.zone-1];
+  const phaseNames = {roll:'Roll Dice',build:'Build Phase',flood:'Flood!',aceplay:'Ace Cards',damage:'Damage',result:'Summary'};
+  // Topbar
+  const tb = document.getElementById('topbar');
+  if(tb) tb.innerHTML=`
+    <div class="top-round-badge" style="background:${lvl.color}">${lvl.emoji} Round ${G.round}/3</div>
+    <div class="top-zone-pill" style="color:${zone.color};border-color:${zone.color}44;background:${zone.color}11">${zone.emoji} Zone ${p.zone}</div>
+    <div class="top-player" style="display:flex;flex-direction:column;gap:1px">
+      <span style="font-size:12px;font-weight:800;color:var(--amber)">👥 ${G.teamName}</span>
+      <span style="font-size:9px;color:rgba(243,237,213,0.4)">${G.members.join(' · ')}</span>
     </div>
-  </div>
-</div>
+    <button class="home-link" onclick="goHome()">✕ Exit</button>
+  `;
+  const hint = document.getElementById('canvas-hint');
+  if(hint) hint.textContent = G.phase==='build'?'Drag material cards onto drop zones · drag scene to orbit':'';
+  // Right panel
+  const rph = document.getElementById('rp-header');
+  const rps = document.getElementById('rp-scroll');
+  if(!rph||!rps)return;
+  rph.innerHTML=`<div class="rp-phase">${phaseNames[G.phase]||''}</div><div class="rp-title">${lvl.name}</div>`;
+  rps.innerHTML='';
+  if(G.phase==='roll')   renderRollPhase(rps,p);
+  else if(G.phase==='build')  renderBuildPhase(rps,p);
+  else if(G.phase==='flood')  renderFloodPhase(rps);
+  else if(G.phase==='aceplay') renderAcePhase(rps);
+  else if(G.phase==='damage') renderDamagePhase(rps);
+  else if(G.phase==='result') renderResultPhase(rps);
+}
 
-<!-- ── PLAYER TURN TOAST ── -->
-<div id="turnToast" class="turn-toast">
-  <div id="turnToastInner"></div>
-</div>
+// ═══════════════════════════════════════════════════════════════════
+// ROLL PHASE
+// ═══════════════════════════════════════════════════════════════════
 
-<!-- ── FLOOD SCREEN ── -->
-<div id="fs" class="scr">
-  <div id="fLeft"><div id="fHud" class="lhud"></div></div>
-  <div id="fRight">
-    <div class="f-header">
-      <span id="fRoundTag" class="btag"></span>
-      <h2 id="fLevelName" class="f-level-name"></h2>
-      <p id="fLevelDesc" class="f-level-desc"></p>
+function renderRollPhase(container, p) {
+  const zone = RISK_ZONES[p.zone-1];
+  const elderKey = G.round===1?'roll_r1':G.round===2?'roll_r2':'roll_r3';
+  addElder(container, getElderLine(elderKey));
+  const d = document.createElement('div');
+  d.innerHTML=`
+    <div class="stats-row">
+      <div class="stat-box"><div class="stat-label">Saved 🪙</div><div class="stat-val" style="color:var(--amber)">${p.savedCoins}</div></div>
+      <div class="stat-box"><div class="stat-label">House</div><div class="stat-val" style="color:${DMG_COLORS[p.damage.overall]};font-size:12px">${['✅ Safe','🔧 Damaged','☠️ Collapsed'][p.damage.overall]}</div></div>
+      <div class="stat-box"><div class="stat-label">Zone Risk</div><div class="stat-val" style="color:${zone.color};font-size:11px">${zone.emoji} ${zone.floodMult}×</div></div>
     </div>
-    <div id="fCards" class="f-cards"></div>
-    <div id="acePanel" class="ace-panel"></div>
-  </div>
-</div>
+    ${G.round===1?`<div class="free-notice"><div class="free-notice-title">🏡 Free Starter Home</div><div class="free-notice-text">Your inherited mud hut is yours at no cost. Roll to earn upgrade coins — the +3 bonus represents the home\'s base value.</div></div>`:''}
+    <div class="dice-area">
+      <div style="color:var(--muted);font-size:12px;margin-bottom:4px">Roll the dice to earn coins for this round</div>
+      <div class="dice-faces"><div class="die" id="die1">?</div><div class="die" id="die2">?</div></div>
+      <div id="dice-result" style="color:var(--muted);font-size:13px;margin-bottom:10px;min-height:18px"></div>
+      <button class="roll-btn" id="roll-btn">🎲 Roll the Dice!</button>
+    </div>
+    <div class="ace-section">
+      <div class="ace-title">🃏 Your Ace Cards (use during flood phase)</div>
+      <div class="ace-cards">${p.aces.map(a=>`<div class="acard${a.used?' used':''}"><span>${a.emoji}</span><span style="font-size:9px">${a.name}</span></div>`).join('')}</div>
+    </div>
+  `;
+  container.appendChild(d);
+  let rolled=false;
+  d.querySelector('#roll-btn').onclick=()=>{
+    if(rolled)return;
+    const faces=['⚀','⚁','⚂','⚃','⚄','⚅'];
+    let ct=0;
+    const iv=setInterval(()=>{
+      document.getElementById('die1').textContent=faces[Math.floor(Math.random()*6)];
+      document.getElementById('die2').textContent=faces[Math.floor(Math.random()*6)];
+      if(++ct>14){
+        clearInterval(iv);
+        const v1=Math.floor(Math.random()*6)+1, v2=Math.floor(Math.random()*6)+1;
+        document.getElementById('die1').textContent=faces[v1-1];
+        document.getElementById('die2').textContent=faces[v2-1];
+        ['die1','die2'].forEach(id=>{const el=document.getElementById(id);if(el){el.classList.remove('rolling');void el.offsetWidth;el.classList.add('rolling');}});
+        const extra=G.round===1?FREE_HOUSE_BONUS:0;
+        p.coins=p.savedCoins+v1+v2+extra;
+        document.getElementById('dice-result').innerHTML=
+          `<span style="color:var(--amber);font-weight:800">${v1}+${v2}=${v1+v2}</span><span style="color:var(--muted)"> + 🪙${p.savedCoins} saved${extra>0?` + 🏡${extra} home bonus`:''} = </span><span style="color:var(--safe);font-weight:800">🪙${p.coins}</span>`;
+        rolled=true;
+        const btn=d.querySelector('#roll-btn');
+        btn.textContent='➡ Start Building';
+        btn.style.background='linear-gradient(135deg,#1a4f1a,#2a7a2a)';
+        btn.style.color='var(--text)';
+        btn.onclick=()=>{ G.phase='build'; focusOnPlot(); updateGameUI(); };
+      }
+    },55);
+  };
+}
 
-<!-- ── DELETE POPUP ── -->
-<div id="dp"><div class="delpanel">
-  <div id="delT" class="delt"></div>
-  <div id="delS" class="dels"></div>
-  <div class="delbts">
-    <button class="db db-y" onclick="confirmDelete()">Remove</button>
-    <button class="db db-n" onclick="closeDelete()">Cancel</button>
-  </div>
-</div></div>
+// ═══════════════════════════════════════════════════════════════════
+// BUILD PHASE
+// ═══════════════════════════════════════════════════════════════════
 
-<!-- ── DEBRIEF ── -->
-<div id="dbs" class="scr">
-  <div id="debriefLeft" class="debrief-left"></div>
-  <div id="debriefRight" class="debrief-right"></div>
-</div>
+function renderBuildPhase(container, p) {
+  const h=p.house;
+  const zone=RISK_ZONES[p.zone-1];
+  const rTarget=h.stacked?1:h.fCount;
+  const isComplete=h.fCount>0&&h.wCount===h.fCount&&h.rCount===rTarget;
+  const rMult=h.stacked?Math.min(h.rCount,1):h.rCount;
+  // Free house: in round 1 the base mud hut (f3×1+w3×1+r3×1=3coins) is already accounted for in the +3 bonus
+  const spent=(h.fMat?h.fMat.cost:0)*h.fCount+(h.wMat?h.wMat.cost:0)*h.wCount+(h.rMat?h.rMat.cost:0)*rMult;
+  const baseFree=G.round===1?FREE_HOUSE_BONUS:0;
+  const coinsLeft=p.coins-Math.max(0,spent-baseFree);
 
-<!-- ── SCRIPTS ── -->
-<!-- Three.js must load first -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  const s=document.createElement('div');
+  s.innerHTML=`<div class="stats-row">
+    <div class="stat-box"><div class="stat-label">Budget 🪙</div><div class="stat-val" style="color:var(--amber)">${p.coins}</div></div>
+    <div class="stat-box"><div class="stat-label">Spent 🪙</div><div class="stat-val" style="color:var(--earth)">${Math.max(0,spent-baseFree)}</div></div>
+    <div class="stat-box"><div class="stat-label">Left 🪙</div><div class="stat-val" style="color:${coinsLeft<1?'var(--danger)':'var(--safe)'}">${coinsLeft}</div></div>
+  </div>`;
+  container.appendChild(s);
 
-<!-- Your files — load in this exact order -->
-<script src="data.js"></script>
-<script src="scene.js"></script>
-<script src="game.js"></script>
-<script src="ui.js"></script>
+  if(G.round===1){
+    addElder(container, p.zone>=4?getElderLine('build_r1_zone5'):p.zone<=2?getElderLine('build_r1_zone1'):getElderLine('build_r1_generic'));
+  } else if(p.damage.overall>0){
+    addElder(container, getElderLine('build_r2_damaged'));
+  }
 
+  if(G.round===1){
+    const fn=document.createElement('div');fn.className='free-notice';fn.innerHTML=`<div class="free-notice-title">🏡 Your Inherited Home (Free)</div><div class="free-notice-text">Mud Plinth + Mud Walls + Thatch Roof — 3 coins, already covered. Upgrade freely with remaining coins.</div>`;
+    container.appendChild(fn);
+  }
+
+  if(p.damage.overall>0&&G.round>1){
+    const rn=document.createElement('div');
+    rn.style.cssText='background:rgba(255,193,7,0.07);border:1px solid rgba(255,193,7,0.18);border-radius:9px;padding:9px 11px;margin-bottom:8px;font-size:11px;color:var(--warn)';
+    rn.innerHTML=`🔧 <strong>Repairs needed.</strong> Replace damaged components — upgrade to new material or rebuild same.`;
+    container.appendChild(rn);
+  }
+
+  // Build status strip
+  const bs=document.createElement('div');bs.className='build-strip';
+  [{cat:'foundation',mat:h.fMat,count:h.fCount,target:h.fCount||1,label:'Foundation',col:'#78909c'},
+   {cat:'wall',mat:h.wMat,count:h.wCount,target:h.fCount,label:'Walls',col:'#e57373'},
+   {cat:'roof',mat:h.rMat,count:h.rCount,target:rTarget,label:'Roof',col:'#ce93d8'}
+  ].forEach(({cat,mat,count,target,label,col})=>{
+    const done=count>=target&&count>0,partial=count>0&&count<target;
+    const b=document.createElement('div');b.className='bsbox';
+    b.style.background=done?'rgba(107,203,119,0.07)':partial?'rgba(255,209,102,0.07)':'var(--card)';
+    b.style.borderColor=done?'rgba(107,203,119,0.3)':partial?'rgba(255,209,102,0.3)':'var(--border)';
+    b.innerHTML=`<div class="bslabel" style="color:${col}">${label}</div><div class="bsval">${mat?mat.name.split(' ')[0]:'—'}${count>0?' ×'+count:''}</div><div class="bshint" style="color:${done?'var(--safe)':partial?'var(--warn)':'var(--muted)'}">${done?'✓ Done':partial?`+${target-count} more`:'drag below'}</div>`;
+    if(count>0){const rb=document.createElement('button');rb.className='rem-btn';rb.textContent='−';rb.onclick=()=>removeBlock(p,cat);b.appendChild(rb);}
+    bs.appendChild(b);
+  });
+  container.appendChild(bs);
+
+  // Layout toggle
+  const lay=document.createElement('div');lay.className='lay-toggle';
+  lay.innerHTML=`<span style="font-size:10px;color:var(--muted);align-self:center">Layout:</span>
+    <button id="st-side" class="lay-btn" style="background:${!h.stacked?'rgba(43,125,191,0.2)':'rgba(255,255,255,0.05)'};color:${!h.stacked?'#90CAF9':'var(--muted)'}">⬛⬛ Side by Side</button>
+    <button id="st-stack" class="lay-btn" style="background:${h.stacked?'rgba(43,125,191,0.2)':'rgba(255,255,255,0.05)'};color:${h.stacked?'#90CAF9':'var(--muted)'}">🟦↑ Stacked</button>`;
+  container.appendChild(lay);
+  lay.querySelector('#st-side').onclick=()=>{ if(h.stacked){h.stacked=false;h.fCount=1;h.wCount=h.fMat?1:0;h.rCount=h.rMat?1:0;rebuildPlot();updateGameUI();} };
+  lay.querySelector('#st-stack').onclick=()=>{ if(!h.stacked){h.stacked=true;rebuildPlot();updateGameUI();} };
+
+  // Material cards per category
+  ['foundation','wall','roof'].forEach(cat=>{
+    const data=MATS[cat];
+    const sec=document.createElement('div');sec.className='mat-section';
+    sec.innerHTML=`<div class="mat-title"><span>${data.emoji}</span><span>${data.label}</span><span style="font-size:8px;color:var(--muted);margin-left:4px">cost per block · drag to drop zone</span></div><div class="mat-cards" id="mc-${cat}"></div>`;
+    container.appendChild(sec);
+    const mc=sec.querySelector('#mc-'+cat);
+    data.opts.forEach(opt=>{
+      const ic=getIncompat(cat,opt.id,h.fMat,h.wMat);
+      const cur=cat==='foundation'?h.fMat:cat==='wall'?h.wMat:h.rMat;
+      const isSel=cur&&cur.id===opt.id;
+      const isIncompat=!!ic;
+      const addCost=G.round===1&&isSel?0:opt.cost; // free to keep existing in round 1 context
+      const canAdd=!isIncompat&&coinsLeft>=opt.cost&&(cat!=='foundation'||h.fCount<MAX_R);
+      const card=document.createElement('div');card.className='mcard';
+      card.style.background=isSel?opt.col:'rgba(255,255,255,0.025)';
+      card.style.borderColor=isSel?opt.border:isIncompat?'rgba(239,71,111,0.3)':'var(--border)';
+      card.style.opacity=isIncompat||(!canAdd&&!isSel)?'0.38':'1';
+      card.style.cursor=canAdd||isSel?'grab':'not-allowed';
+      card.innerHTML=`<div class="mc-emoji">${opt.emoji}</div><div class="mc-name">${opt.name}</div><div class="mc-stats"><span class="mc-pill" style="background:rgba(232,168,56,0.15);color:var(--amber)">🪙${opt.cost}</span></div>${isIncompat?'<span class="mc-badge" style="color:var(--danger)">🚫</span>':isSel?'<span class="mc-badge" style="color:var(--safe)">✓</span>':''}`;
+      if(canAdd||isSel){
+        card.draggable=true;
+        card.addEventListener('dragstart',e=>{dragging={cat,optId:opt.id};e.dataTransfer.setData('text/plain','');});
+        card.addEventListener('dragend',()=>{dragging=null;});
+        card.addEventListener('click',()=>placeBlock(p,cat,opt,coinsLeft));
+      } else if(isIncompat){ card.addEventListener('click',()=>toast('🚫 '+ic)); }
+      mc.appendChild(card);
+    });
+    // Drop zones
+    const dzw=document.createElement('div');dzw.className='drop-zone-row';
+    const dz=document.createElement('div');dz.className='drop-zone';dz.textContent='⬅ Drop to add room →';
+    dz.addEventListener('dragover',e=>{e.preventDefault();dz.classList.add('active-dz');});
+    dz.addEventListener('dragleave',()=>dz.classList.remove('active-dz'));
+    dz.addEventListener('drop',e=>{e.preventDefault();dz.classList.remove('active-dz');if(dragging&&dragging.cat===cat){const o=data.opts.find(x=>x.id===dragging.optId);if(o)placeBlock(p,cat,o,coinsLeft);}});
+    dzw.appendChild(dz);
+    sec.appendChild(dzw);
+  });
+
+  // Discussion prompt
+  const qMap={1:'Why might families choose cheaper materials — is it purely about money, or are there other factors?',
+               2:'After this first flood, what do you now understand about material choices that you didn\'t before?',
+               3:'This is the last flood. What trade-offs did you make across all three rounds?'};
+  addDiscuss(container, qMap[G.round]||'');
+
+  const btn=document.createElement('button');
+  btn.className='action-btn '+(isComplete?'primary':'disabled');
+  btn.textContent=isComplete?'✅ Confirm Build — Face the Flood':!h.fCount?'Drop a foundation first':h.wCount<h.fCount?`Add ${h.fCount-h.wCount} more wall block(s)`:h.rCount<rTarget?`Add ${rTarget-h.rCount} more roof block(s)`:'Complete your house';
+  btn.onclick=()=>{
+    if(!isComplete)return;
+    const calcSpent=Math.max(0,(h.fMat?h.fMat.cost:0)*h.fCount+(h.wMat?h.wMat.cost:0)*h.wCount+(h.rMat?h.rMat.cost:0)*rMult-baseFree);
+    p.savedCoins=p.coins-calcSpent;
+    G.phase='flood';
+    startFlood();
+    updateGameUI();
+  };
+  container.appendChild(btn);
+}
+
+function placeBlock(p,cat,opt,coinsLeft){
+  const h=p.house;
+  const ic=getIncompat(cat,opt.id,h.fMat,h.wMat);
+  if(ic){toast('🚫 '+ic);return;}
+  if(cat==='wall'&&h.fCount===0){toast('Place a foundation first!');return;}
+  if(cat==='wall'&&h.wCount>=h.fCount){toast('Need more foundation blocks first!');return;}
+  if(cat==='roof'){if(h.wCount===0){toast('Add walls first!');return;} const maxR=h.stacked?1:h.wCount; if(h.rCount>=maxR){toast(h.stacked?'One roof covers stacked house!':'Add more wall blocks first!');return;}}
+  if(cat==='foundation'&&h.fCount>=MAX_R){toast('Max 4 rooms!');return;}
+  const cur=cat==='foundation'?h.fMat:cat==='wall'?h.wMat:h.rMat;
+  if(cur&&cur.id!==opt.id){
+    if(cat==='foundation'){h.fCount=0;h.wCount=0;h.rCount=0;h.fMat=null;h.wMat=null;h.rMat=null;}
+    else if(cat==='wall'){h.wCount=0;h.wMat=null;h.rCount=0;h.rMat=null;}
+    else{h.rCount=0;h.rMat=null;}
+    toast('Material changed — drop again to place');rebuildPlot();updateGameUI();return;
+  }
+  if(coinsLeft<opt.cost&&!(G.round===1&&cur&&cur.id===opt.id)){toast('🪙 Not enough coins!');return;}
+  if(cat==='foundation'){h.fMat=opt;h.fCount++;}
+  else if(cat==='wall'){h.wMat=opt;h.wCount++;}
+  else{h.rMat=opt;h.rCount++;}
+  rebuildPlot();updateGameUI();
+}
+function removeBlock(p,cat){
+  const h=p.house;
+  if(cat==='foundation'){if(h.wCount>0){toast('Remove walls first!');return;}h.fCount=Math.max(0,h.fCount-1);if(h.fCount===0)h.fMat=null;}
+  else if(cat==='wall'){const maxR=h.stacked?1:h.wCount;if(h.rCount>=h.wCount){toast('Remove roof first!');return;}h.wCount=Math.max(0,h.wCount-1);if(h.wCount===0)h.wMat=null;}
+  else{h.rCount=Math.max(0,h.rCount-1);if(h.rCount===0)h.rMat=null;}
+  rebuildPlot();updateGameUI();
+}
+function rebuildPlot(){ if(tsRef) buildPlayerPlot(tsRef,G.player,G.player.damage); }
+
+// ═══════════════════════════════════════════════════════════════════
+// FLOOD PHASE
+// ═══════════════════════════════════════════════════════════════════
+
+function startFlood(){
+  if(!tsRef)return;
+  const lvl=LEVELS[G.round-1];
+  focusOnPlot(true);
+  const fl=document.getElementById('flood-label');if(fl)fl.style.display='block';
+  tsRef.floodY=-0.1; tsRef.targetH=lvl.floodH; tsRef.flooding=true;
+  tsRef.water.position.y=-4.1;
+  tsRef.wSurf.position.y=-0.09;
+  tsRef.ripples.forEach(r=>{ r.position.y=0.02; });
+  tsRef.onDone=()=>{
+    const fl2=document.getElementById('flood-label');if(fl2)fl2.style.display='none';
+    G.player.playedAces=[];
+    G.phase='aceplay';
+    updateGameUI();
+  };
+}
+
+function renderFloodPhase(container){
+  addElder(container, getElderLine('flood_r'+G.round));
+  container.innerHTML+='<div style="color:var(--muted);font-size:13px;padding:20px;text-align:center">🌊 Flood simulation running…<br><span style="font-size:11px;color:rgba(243,237,213,0.3)">Watch the 3D scene</span></div>';
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// ACE PHASE
+// ═══════════════════════════════════════════════════════════════════
+
+function renderAcePhase(container){
+  const p=G.player;
+  const div=document.createElement('div');
+  div.innerHTML=`<div style="color:var(--muted);font-size:12px;margin-bottom:10px">You can play an Ace Card now to shift the odds. Cards played here affect your damage probabilities.</div>
+  <div class="ace-cards" id="ace-play"></div>
+  <div style="margin-top:6px;font-size:11px;color:rgba(243,237,213,0.3)">Click to toggle. Then continue.</div>`;
+  container.appendChild(div);
+  const area=div.querySelector('#ace-play');
+  const available=p.aces.filter(a=>!a.used);
+  if(available.length===0){
+    area.innerHTML='<div style="color:var(--muted);font-size:11px">No Ace Cards remaining.</div>';
+  } else {
+    available.forEach(a=>{
+      const btn=document.createElement('div');btn.className='acard'+(p.playedAces.includes(a.id)?' played':'');
+      btn.innerHTML=`<span>${a.emoji}</span><div><div style="font-size:10px;font-weight:700">${a.name}</div><div style="font-size:9px;opacity:0.7">${a.desc}</div></div>`;
+      btn.onclick=()=>{
+        if(p.playedAces.includes(a.id)) p.playedAces=p.playedAces.filter(x=>x!==a.id);
+        else p.playedAces=[...p.playedAces,a.id];
+        container.innerHTML='';renderAcePhase(container);
+      };
+      area.appendChild(btn);
+    });
+  }
+  addDiscuss(container,'Ace Cards represent real-world interventions — sandbags, drainage, waterproofing. Who do you think has access to these, and who doesn\'t?');
+  const next=document.createElement('button');next.className='action-btn flood';next.style.marginTop='10px';
+  next.textContent='💥 Reveal Damage';
+  next.onclick=()=>{
+    p.playedAces.forEach(aid=>{const a=p.aces.find(x=>x.id===aid);if(a)a.used=true;});
+    G.pendingDmg=rollDamage(p, G.round-1, p.playedAces);
+    G.phase='damage';
+    updateGameUI();
+  };
+  container.appendChild(next);
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// DAMAGE PHASE — SCENARIOS
+// ═══════════════════════════════════════════════════════════════════
+
+function renderDamagePhase(container){
+  const p=G.player;
+  const res=G.pendingDmg;
+  const zone=RISK_ZONES[p.zone-1];
+  const lvl=LEVELS[G.round-1];
+
+  // Apply emergency repair
+  if(p.playedAces.includes('a5')&&res.overall>0){
+    res.overall=Math.max(0,res.overall-1);
+    res.notes.push('🔧 Emergency Repair: damage tier reduced');
+  }
+
+  const scenarios=generateScenarios(p,G.round-1,res,zone);
+
+  const header=document.createElement('div');
+  header.innerHTML=`<div style="font-size:12px;color:var(--muted);margin-bottom:8px">Round ${G.round} · ${lvl.emoji} ${lvl.name}</div>
+    <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:${DMG_COLORS[res.overall]}18;border:1px solid ${DMG_COLORS[res.overall]}44;border-radius:12px;margin-bottom:10px">
+      <span style="font-size:26px">${res.overall===0?'🏠':res.overall===1?'🔧':'☠️'}</span>
+      <div><div style="font-weight:800;font-size:14px;color:${DMG_COLORS[res.overall]}">${DMG_LABELS[res.overall]}</div>
+      <div style="font-size:11px;color:var(--muted)">${p.house.fMat?.name||'?'} · ${p.house.wMat?.name||'?'} · ${p.house.rMat?.name||'?'} · Zone ${p.zone}</div></div>
+    </div>`;
+  container.appendChild(header);
+
+  // Scenario cards
+  const sw=document.createElement('div');sw.className='scenario-wrap';
+  scenarios.forEach(sc=>{
+    const card=document.createElement('div');card.className='scenario-card';
+    card.style.borderColor=sc.col||'var(--border)';
+    card.style.background=`${sc.col||'#fff'}09`;
+    let outcomeHtml='';
+    if(sc.outcome!==null&&sc.outcome!==undefined){
+      outcomeHtml=`<div class="sc-outcome" style="background:${DMG_COLORS[sc.outcome]}18;color:${DMG_COLORS[sc.outcome]}">${DMG_LABELS[sc.outcome]}</div>`;
+    }
+    card.innerHTML=`<div class="sc-label" style="color:${sc.col||'var(--muted)'}">${sc.icon} ${sc.label}</div>${outcomeHtml}<div class="sc-narrative">${sc.text}</div>`;
+    sw.appendChild(card);
+  });
+  container.appendChild(sw);
+
+  // Cascading notes
+  if(res.notes&&res.notes.length>0){
+    const nw=document.createElement('div');
+    nw.style.cssText='background:rgba(255,255,255,0.03);border-radius:9px;padding:8px 10px;margin-bottom:8px';
+    nw.innerHTML='<div style="font-size:9px;font-weight:800;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-bottom:5px">Modifiers Applied</div>'+
+      res.notes.map(n=>`<div style="font-size:10px;color:rgba(243,237,213,0.4);margin-bottom:3px;display:flex;gap:5px"><span>›</span><span>${n}</span></div>`).join('');
+    container.appendChild(nw);
+  }
+
+  // Elder comment on outcome
+  addElder(container, res.overall===2?getElderLine('damage_collapsed'):getElderLine('damage_safe'));
+
+  const btn=document.createElement('button');btn.className='action-btn flood';btn.textContent='📋 Apply Damage & Continue';
+  btn.onclick=()=>{
+    p.damage={...res};
+    if(res.overall===2){ p.house={fCount:0,wCount:0,rCount:0,fMat:null,wMat:null,rMat:null,stacked:false}; }
+    p.roundLog.push({round:G.round,fMat:p.house.fMat,wMat:p.house.wMat,rMat:p.house.rMat,fCount:p.house.fCount,stacked:p.house.stacked,damage:{...res},playedAces:[...p.playedAces]});
+    if(tsRef) buildPlayerPlot(tsRef,p,p.damage);
+    G.phase='result'; updateGameUI();
+  };
+  container.appendChild(btn);
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// RESULT PHASE
+// ═══════════════════════════════════════════════════════════════════
+
+function renderResultPhase(container){
+  const p=G.player;
+  const res=p.damage;
+  const zone=RISK_ZONES[p.zone-1];
+
+  const card=document.createElement('div');card.className='result-card';
+  card.style.borderColor=DMG_COLORS[res.overall];
+  card.innerHTML=`<div style="font-size:28px;margin-bottom:6px">${res.overall===0?'🏠':res.overall===1?'🔧':'☠️'}</div>
+    <div style="font-size:14px;font-weight:800;color:${DMG_COLORS[res.overall]}">${['House Survived','Needs Repairs','Complete Collapse'][res.overall]}</div>
+    <div style="font-size:11px;color:var(--muted);margin-top:4px">${p.house.fMat?p.house.fMat.name+' + '+p.house.wMat.name+' + '+p.house.rMat.name:'Collapsed — rebuild next round'}</div>
+    <div style="margin-top:6px"><span class="top-zone-pill" style="color:${zone.color};border-color:${zone.color}44;background:${zone.color}11">${zone.emoji} Zone ${p.zone} — ${zone.name}</span></div>`;
+  container.appendChild(card);
+
+  // Reflect box
+  const rflect=document.createElement('div');rflect.className='reflect-box';
+  const qs={
+    1:['What surprised you about the damage result?','If this were your real home, what would you do differently before next monsoon?','Who in a real community would help a family after their house collapses?'],
+    2:['Did your Zone affect the outcome more than your material choice?','What would "good enough" construction mean for a family with limited money?','How does a repeated flood affect a family\'s motivation to rebuild — or to leave?'],
+    3:['Looking back across all three rounds — what was your biggest insight?','Do you think the role of luck (dice rolls) accurately reflects reality? What makes real floods unpredictable?','What policy or community action could reduce Zone 5 risk for families who have no choice but to live there?'],
+  };
+  rflect.innerHTML=`<div class="reflect-title">💬 Discuss & Reflect</div>`+(qs[G.round]||[]).map(q=>`<div class="reflect-q">${q}</div>`).join('');
+  container.appendChild(rflect);
+
+  const btn=document.createElement('button');btn.className='action-btn primary';btn.style.marginTop='10px';
+  btn.textContent=G.round<3?`▶ Start Round ${G.round+1}`:'🏆 See Final Results';
+  btn.onclick=()=>{
+    if(G.round<3){
+      G.round++;G.phase='roll';
+      if(tsRef){tsRef.flooding=false;tsRef.floodY=-10;tsRef.water.position.y=-14;tsRef.wSurf.position.y=-9.99;tsRef.ripples.forEach(r=>{ r.position.y=0.02; });}
+      if(p.damage.overall===2){
+        p.house={fCount:1,wCount:1,rCount:1,fMat:matById('f3'),wMat:matById('w3'),rMat:matById('r3'),stacked:false};
+        p.damage={fDmg:0,wDmg:0,rDmg:0,overall:0};
+        toast(p.name+' rebuilds from a mud hut.');
+      }
+      p.savedCoins=p.savedCoins||0;
+      if(tsRef){buildPlayerPlot(tsRef,p,p.damage);focusOnPlot();}
+      updateGameUI();
+    } else { screen='end'; if(rafRef)cancelAnimationFrame(rafRef); render(); }
+  };
+  container.appendChild(btn);
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// END SCREEN
+// ═══════════════════════════════════════════════════════════════════
+
+function renderEnd(){
+  const p=G.player;
+  const zone=RISK_ZONES[p.zone-1];
+  const div=document.createElement('div');div.className='screen end-screen';
+  const left=document.createElement('div');left.className='end-left';
+  left.innerHTML=`<div class="end-title">🌊 ${G.teamName} — Village Story Over 3 Flood Seasons</div>
+    <div style="font-size:11px;color:var(--muted);margin-bottom:12px;display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+      <span style="color:rgba(243,237,213,0.4)">Team members:</span>
+      ${G.members.map(m=>`<span style="background:rgba(232,168,56,0.1);border:1px solid rgba(232,168,56,0.2);border-radius:20px;padding:2px 10px;font-size:10px;font-weight:700;color:var(--amber)">${m}</span>`).join('')}
+    </div>`;
+
+  // Outcome card
+  const wCard=document.createElement('div');wCard.className='winner-card';
+  const safeCt=p.roundLog.filter(r=>r.damage.overall===0).length;
+  wCard.innerHTML=`<span style="font-size:40px">${safeCt===3?'🏆':safeCt===2?'🏠':safeCt===1?'🔧':'😔'}</span>
+    <div style="font-family:'Cinzel',serif;font-size:18px;font-weight:700;color:var(--amber);margin-top:10px">👥 ${G.teamName}</div>
+    <div style="font-size:11px;color:var(--muted);margin-top:2px">${G.members.join(' · ')}</div>
+    <div style="font-size:13px;color:var(--muted);margin-top:5px">${zone.emoji} ${zone.name} · Zone ${p.zone}</div>
+    <div style="font-size:13px;color:${DMG_COLORS[safeCt===3?0:safeCt>=1?1:2]};margin-top:8px">${safeCt===3?'All 3 seasons survived — remarkable resilience.':safeCt===2?'2 of 3 seasons survived — a real but fragile story.':safeCt===1?'1 season safe, 2 with damage or collapse. A common story in flood zones.':'No seasons fully safe. This is the reality for many Zone '+(p.zone)+' families.'}</div>`;
+  left.appendChild(wCard);
+
+  // Round-by-round log
+  [1,2,3].forEach(rnd=>{
+    const log=p.roundLog.find(l=>l.round===rnd);
+    const lvl=LEVELS[rnd-1];
+    const rb=document.createElement('div');rb.className='round-block';
+    if(!log){rb.innerHTML=`<div class="rb-header"><div class="rb-num" style="background:${lvl.color}">${rnd}</div><div style="font-size:13px;font-weight:700;color:var(--muted)">${lvl.emoji} ${lvl.name} — not played</div></div>`;left.appendChild(rb);return;}
+    const mats=log.fMat?`${log.fMat.emoji} ${log.fMat.name} + ${log.wMat.emoji} ${log.wMat.name} + ${log.rMat.emoji} ${log.rMat.name}`:'(collapsed)';
+    rb.innerHTML=`<div class="rb-header"><div class="rb-num" style="background:${lvl.color}">${rnd}</div>
+      <div><div style="font-size:13px;font-weight:700;color:var(--text)">${lvl.emoji} ${lvl.name}</div>
+      <div style="font-size:10px;color:var(--muted)">${mats}</div></div>
+      <span class="dpill dpill-${log.damage.overall}" style="margin-left:auto">${['Safe','Repair','Collapse'][log.damage.overall]}</span></div>
+      ${log.playedAces.length>0?`<div style="font-size:9px;color:rgba(243,237,213,0.35);padding:2px 0 0 34px">Played: ${log.playedAces.map(id=>{const a=ACE_POOL.find(x=>x.id===id);return a?a.emoji+' '+a.name:'?';}).join(', ')}</div>`:''}`;
+    left.appendChild(rb);
+  });
+
+  div.appendChild(left);
+
+  // Right: reflections & learnings
+  const right=document.createElement('div');right.className='end-right';
+  right.innerHTML=`<div style="font-family:'Cinzel',serif;font-size:14px;font-weight:700;color:var(--text);margin-bottom:14px">💬 Final Reflection</div>
+    ${['Did your Zone assignment feel fair? Does randomness in life feel fair?',
+       'What single change — material, location, or policy — would have the biggest impact on flood resilience?',
+       'Which real-world family do you think your story most resembles?',
+       'What does this simulation leave out that real flood survivors would tell you?',
+       'If you were advising a government, what is the first thing you would change?']
+      .map(q=>`<div style="font-size:12px;color:rgba(163,210,255,0.8);line-height:1.6;margin-bottom:10px;padding-left:12px;border-left:2px solid rgba(43,125,191,0.3)">${q}</div>`).join('')}
+    <div style="height:1px;background:var(--border);margin:12px 0"></div>
+    <div style="font-family:'Cinzel',serif;font-size:13px;font-weight:700;color:var(--text);margin-bottom:10px">🌱 Key Insights</div>
+    ${['Zone placement — often beyond individual control — matters as much as material quality.',
+       'Mud is not "bad" — it is often the only affordable choice, and skilled mud construction can outperform cheap concrete.',
+       'Stacking floors is an ancient flood-adaptation strategy still used across South Asia.',
+       'The dice (randomness) reflect real unpredictability: soil variation, storm path, drainage failure.',
+       'Ace Cards represent access to resources, information, and government support — unevenly distributed.',
+       'After collapse, rebuilding with the same materials in the same place is common — poverty traps are real.']
+      .map(t=>`<div class="learn-item"><span style="color:var(--amber)">✦</span><span>${t}</span></div>`).join('')}
+    <button class="home-btn" onclick="goHome()">🏡 Play Again</button>`;
+  div.appendChild(right);
+  return div;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// UI HELPERS
+// ═══════════════════════════════════════════════════════════════════
+
+function addElder(container, text) {
+  if(!text) return;
+  const d=document.createElement('div');d.className='elder-box';
+  d.innerHTML=`<div class="elder-avatar">🧓</div><div><div class="elder-name">Village Elder</div><div class="elder-text">"${text}"</div></div>`;
+  container.appendChild(d);
+}
+
+function addDiscuss(container, text) {
+  if(!text) return;
+  const d=document.createElement('div');d.className='discuss-box';
+  d.innerHTML=`<div class="discuss-icon">💬 Discuss</div><div class="discuss-q">${text}</div>`;
+  container.appendChild(d);
+}
+
+function goHome(){ if(rafRef)cancelAnimationFrame(rafRef); tsRef=null; screen='setup'; setupTeamName=''; setupMembers=['','']; render(); }
+window.goHome=goHome;
+
+// ═══════════════════════════════════════════════════════════════════
+// BOOT
+// ═══════════════════════════════════════════════════════════════════
+render();
+</script>
 </body>
 </html>
