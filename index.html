@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
-<title>Safer Together</title>
+<title>Flood & Foundation — Village Builder</title>
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;900&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <style>
@@ -312,7 +312,35 @@ const DMG_LABELS = ['✅ Safe','🔧 Repairs Needed','☠️ Collapsed'];
 const DMG_COLORS = ['#6BCB77','#FFD166','#EF476F'];
 
 const FH=0.38, WH=1.0, PEAK=0.60, MAX_R=4;
-const FREE_HOUSE_BONUS = 3; // Coins representing inherited home value
+const FREE_HOUSE_BONUS = 3; // Coins representing inherited home value (covers f3+w3+r3 in round 1)
+
+// Cost to place/keep a component in the build phase
+// Round 1: base mud hut is "free" via bonus; any upgrades pay the difference
+// Round 2+: intact = free to keep (or pay diff to upgrade), damaged = half cost repair, collapsed = full cost
+function getComponentCost(p, cat, opt) {
+  if (G.round === 1) {
+    const baseCosts = { foundation:1, wall:1, roof:1 }; // f3/w3/r3 cost 1 each
+    const baseIds   = { foundation:'f3', wall:'w3', roof:'r3' };
+    // Base mud component covered by bonus
+    if (opt.id === baseIds[cat]) return 0;
+    return opt.cost - baseCosts[cat]; // pay upgrade difference
+  }
+  const ph = p.prevHouse;
+  const pd = p.prevDamage;
+  if (!ph || !ph.fMat) return opt.cost; // no previous house at all
+  const prevMat = ph[cat+'Mat'];
+  if (!prevMat) return opt.cost;
+  const dmgLevel = cat==='foundation'? pd.fDmg : cat==='wall'? pd.wDmg : pd.rDmg;
+  if (dmgLevel === 0) {
+    // Intact — keep same for free, or pay full cost to change material
+    return opt.id === prevMat.id ? 0 : opt.cost;
+  } else if (dmgLevel === 1) {
+    // Damaged — half cost repair if same material, full cost to upgrade
+    return opt.id === prevMat.id ? Math.ceil(opt.cost / 2) : opt.cost;
+  }
+  // Collapsed — full cost regardless
+  return opt.cost;
+}
 
 // ═══════════════════════════════════════════════════════════════════
 // SCENARIO NARRATIVES
@@ -1063,6 +1091,8 @@ function newGame(teamName, members, zoneId) {
       house: { fCount:1, wCount:1, rCount:1, fMat:matById('f3'), wMat:matById('w3'), rMat:matById('r3'), stacked:false },
       aces: randomAces(),
       damage: { fDmg:0, wDmg:0, rDmg:0, overall:0 },
+      prevHouse: null,   // snapshot of house after last flood (for cost calculations)
+      prevDamage: null,  // damage result from last flood
       playedAces: [],
       roundLog: [],
     },
@@ -1365,102 +1395,151 @@ function renderRollPhase(container, p) {
 // BUILD PHASE
 // ═══════════════════════════════════════════════════════════════════
 
-function renderBuildPhase(container, p) {
-  const h=p.house;
-  const zone=RISK_ZONES[p.zone-1];
-  const rTarget=h.stacked?1:h.fCount;
-  const isComplete=h.fCount>0&&h.wCount===h.fCount&&h.rCount===rTarget;
-  const rMult=h.stacked?Math.min(h.rCount,1):h.rCount;
-  // Free house: in round 1 the base mud hut (f3×1+w3×1+r3×1=3coins) is already accounted for in the +3 bonus
-  const spent=(h.fMat?h.fMat.cost:0)*h.fCount+(h.wMat?h.wMat.cost:0)*h.wCount+(h.rMat?h.rMat.cost:0)*rMult;
-  const baseFree=G.round===1?FREE_HOUSE_BONUS:0;
-  const coinsLeft=p.coins-Math.max(0,spent-baseFree);
+function calcHouseSpend(p) {
+  const h = p.house;
+  if (!h.fMat) return 0;
+  const rMult = h.stacked ? Math.min(h.rCount,1) : h.rCount;
+  let total = 0;
+  // Cost per block is always based on component cost fn (uses prevHouse/prevDamage)
+  total += getComponentCost(p,'foundation',h.fMat) * h.fCount;
+  if (h.wMat) total += getComponentCost(p,'wall',h.wMat) * h.wCount;
+  if (h.rMat) total += getComponentCost(p,'roof',h.rMat) * rMult;
+  return Math.max(0, total);
+}
 
-  const s=document.createElement('div');
-  s.innerHTML=`<div class="stats-row">
+function renderBuildPhase(container, p) {
+  const h = p.house;
+  const zone = RISK_ZONES[p.zone-1];
+  const rTarget = h.stacked ? 1 : h.fCount;
+  const isComplete = h.fCount>0 && h.wCount===h.fCount && h.rCount===rTarget;
+  const spent = calcHouseSpend(p);
+  const coinsLeft = p.coins - spent;
+  const pd = p.prevDamage;
+  const ph = p.prevHouse;
+
+  // Stats bar
+  const s = document.createElement('div');
+  s.innerHTML = `<div class="stats-row">
     <div class="stat-box"><div class="stat-label">Budget 🪙</div><div class="stat-val" style="color:var(--amber)">${p.coins}</div></div>
-    <div class="stat-box"><div class="stat-label">Spent 🪙</div><div class="stat-val" style="color:var(--earth)">${Math.max(0,spent-baseFree)}</div></div>
+    <div class="stat-box"><div class="stat-label">Spent 🪙</div><div class="stat-val" style="color:var(--earth)">${spent}</div></div>
     <div class="stat-box"><div class="stat-label">Left 🪙</div><div class="stat-val" style="color:${coinsLeft<1?'var(--danger)':'var(--safe)'}">${coinsLeft}</div></div>
   </div>`;
   container.appendChild(s);
 
-  if(G.round===1){
-    addElder(container, p.zone>=4?getElderLine('build_r1_zone5'):p.zone<=2?getElderLine('build_r1_zone1'):getElderLine('build_r1_generic'));
-  } else if(p.damage.overall>0){
+  // Elder line
+  if (G.round===1) {
+    addElder(container, p.zone>=4 ? getElderLine('build_r1_zone5') : p.zone<=2 ? getElderLine('build_r1_zone1') : getElderLine('build_r1_generic'));
+  } else if (pd && pd.overall > 0) {
     addElder(container, getElderLine('build_r2_damaged'));
   }
 
-  if(G.round===1){
-    const fn=document.createElement('div');fn.className='free-notice';fn.innerHTML=`<div class="free-notice-title">🏡 Your Inherited Home (Free)</div><div class="free-notice-text">Mud Plinth + Mud Walls + Thatch Roof — 3 coins, already covered. Upgrade freely with remaining coins.</div>`;
+  // Round 1 free notice
+  if (G.round===1) {
+    const fn = document.createElement('div'); fn.className='free-notice';
+    fn.innerHTML=`<div class="free-notice-title">🏡 Your Inherited Home (Free)</div><div class="free-notice-text">Mud Plinth + Mud Walls + Thatch Roof — already yours. Upgrades cost the <em>difference</em> in price. Save coins for next round.</div>`;
     container.appendChild(fn);
   }
 
-  if(p.damage.overall>0&&G.round>1){
-    const rn=document.createElement('div');
-    rn.style.cssText='background:rgba(255,193,7,0.07);border:1px solid rgba(255,193,7,0.18);border-radius:9px;padding:9px 11px;margin-bottom:8px;font-size:11px;color:var(--warn)';
-    rn.innerHTML=`🔧 <strong>Repairs needed.</strong> Replace damaged components — upgrade to new material or rebuild same.`;
-    container.appendChild(rn);
+  // Round 2+ status notice
+  if (G.round > 1 && ph && ph.fMat) {
+    const hasCollapsed = pd && pd.overall===2;
+    const hasDamage    = pd && pd.overall===1;
+    const isIntact     = pd && pd.overall===0;
+    const notice = document.createElement('div');
+    notice.style.cssText = `border-radius:10px;padding:10px 12px;margin-bottom:8px;font-size:11px;border:1px solid;`;
+    if (isIntact) {
+      notice.style.cssText += 'background:rgba(107,203,119,0.07);border-color:rgba(107,203,119,0.25);color:var(--safe)';
+      notice.innerHTML = `✅ <strong>House survived intact</strong> — your ${ph.fMat.name} + ${ph.wMat.name} + ${ph.rMat.name} carry over for free. Only pay if you upgrade.`;
+    } else if (hasDamage) {
+      const parts = [];
+      if (pd.fDmg===1) parts.push(`Foundation (${ph.fMat.name}): 🪙${Math.ceil(ph.fMat.cost/2)} to repair`);
+      if (pd.wDmg===1) parts.push(`Walls (${ph.wMat.name}): 🪙${Math.ceil(ph.wMat.cost/2)} to repair`);
+      if (pd.rDmg===1) parts.push(`Roof (${ph.rMat.name}): 🪙${Math.ceil(ph.rMat.cost/2)} to repair`);
+      notice.style.cssText += 'background:rgba(255,209,102,0.07);border-color:rgba(255,209,102,0.25);color:var(--warn)';
+      notice.innerHTML = `🔧 <strong>Repair costs:</strong> ${parts.join(' · ')}<br><span style="opacity:0.7;font-size:10px">Intact parts are free. Upgrading a damaged part costs full material price.</span>`;
+    } else {
+      notice.style.cssText += 'background:rgba(239,71,111,0.07);border-color:rgba(239,71,111,0.25);color:var(--danger)';
+      notice.innerHTML = `☠️ <strong>House completely destroyed.</strong> You must build from scratch — all materials at full cost.`;
+    }
+    container.appendChild(notice);
   }
 
   // Build status strip
-  const bs=document.createElement('div');bs.className='build-strip';
-  [{cat:'foundation',mat:h.fMat,count:h.fCount,target:h.fCount||1,label:'Foundation',col:'#78909c'},
-   {cat:'wall',mat:h.wMat,count:h.wCount,target:h.fCount,label:'Walls',col:'#e57373'},
-   {cat:'roof',mat:h.rMat,count:h.rCount,target:rTarget,label:'Roof',col:'#ce93d8'}
-  ].forEach(({cat,mat,count,target,label,col})=>{
-    const done=count>=target&&count>0,partial=count>0&&count<target;
-    const b=document.createElement('div');b.className='bsbox';
-    b.style.background=done?'rgba(107,203,119,0.07)':partial?'rgba(255,209,102,0.07)':'var(--card)';
-    b.style.borderColor=done?'rgba(107,203,119,0.3)':partial?'rgba(255,209,102,0.3)':'var(--border)';
-    b.innerHTML=`<div class="bslabel" style="color:${col}">${label}</div><div class="bsval">${mat?mat.name.split(' ')[0]:'—'}${count>0?' ×'+count:''}</div><div class="bshint" style="color:${done?'var(--safe)':partial?'var(--warn)':'var(--muted)'}">${done?'✓ Done':partial?`+${target-count} more`:'drag below'}</div>`;
-    if(count>0){const rb=document.createElement('button');rb.className='rem-btn';rb.textContent='−';rb.onclick=()=>removeBlock(p,cat);b.appendChild(rb);}
+  const bs = document.createElement('div'); bs.className='build-strip';
+  const cats = [
+    {cat:'foundation', mat:h.fMat, count:h.fCount, target:h.fCount||1, label:'Foundation', col:'#78909c'},
+    {cat:'wall',       mat:h.wMat, count:h.wCount, target:h.fCount,    label:'Walls',      col:'#e57373'},
+    {cat:'roof',       mat:h.rMat, count:h.rCount, target:rTarget,      label:'Roof',       col:'#ce93d8'},
+  ];
+  cats.forEach(({cat,mat,count,target,label,col})=>{
+    const done=count>=target&&count>0, partial=count>0&&count<target;
+    // Cost indicator per block
+    const costPerBlock = mat ? getComponentCost(p,cat,mat) : null;
+    const costTag = mat ? (costPerBlock===0?'<span style="color:var(--safe);font-size:8px">FREE</span>':
+                           `<span style="color:var(--warn);font-size:8px">🪙${costPerBlock}×${count}</span>`) : '';
+    const b = document.createElement('div'); b.className='bsbox';
+    b.style.background = done?'rgba(107,203,119,0.07)':partial?'rgba(255,209,102,0.07)':'var(--card)';
+    b.style.borderColor = done?'rgba(107,203,119,0.3)':partial?'rgba(255,209,102,0.3)':'var(--border)';
+    b.innerHTML=`<div class="bslabel" style="color:${col}">${label}</div><div class="bsval">${mat?mat.name.split(' ')[0]:'—'}${count>0?' ×'+count:''}</div>${costTag}<div class="bshint" style="color:${done?'var(--safe)':partial?'var(--warn)':'var(--muted)'}">${done?'✓ Done':partial?`+${target-count} more`:'drag below'}</div>`;
+    if (count>0){const rb=document.createElement('button');rb.className='rem-btn';rb.textContent='−';rb.onclick=()=>removeBlock(p,cat);b.appendChild(rb);}
     bs.appendChild(b);
   });
   container.appendChild(bs);
 
   // Layout toggle
-  const lay=document.createElement('div');lay.className='lay-toggle';
+  const lay = document.createElement('div'); lay.className='lay-toggle';
   lay.innerHTML=`<span style="font-size:10px;color:var(--muted);align-self:center">Layout:</span>
     <button id="st-side" class="lay-btn" style="background:${!h.stacked?'rgba(43,125,191,0.2)':'rgba(255,255,255,0.05)'};color:${!h.stacked?'#90CAF9':'var(--muted)'}">⬛⬛ Side by Side</button>
     <button id="st-stack" class="lay-btn" style="background:${h.stacked?'rgba(43,125,191,0.2)':'rgba(255,255,255,0.05)'};color:${h.stacked?'#90CAF9':'var(--muted)'}">🟦↑ Stacked</button>`;
   container.appendChild(lay);
-  lay.querySelector('#st-side').onclick=()=>{ if(h.stacked){h.stacked=false;h.fCount=1;h.wCount=h.fMat?1:0;h.rCount=h.rMat?1:0;rebuildPlot();updateGameUI();} };
+  lay.querySelector('#st-side').onclick=()=>{ if(h.stacked){h.stacked=false;h.fCount=Math.max(1,h.fCount);h.wCount=h.wMat?Math.min(h.wCount,h.fCount):0;h.rCount=h.rMat?Math.min(h.rCount,h.fCount):0;rebuildPlot();updateGameUI();} };
   lay.querySelector('#st-stack').onclick=()=>{ if(!h.stacked){h.stacked=true;rebuildPlot();updateGameUI();} };
 
   // Material cards per category
   ['foundation','wall','roof'].forEach(cat=>{
-    const data=MATS[cat];
-    const sec=document.createElement('div');sec.className='mat-section';
-    sec.innerHTML=`<div class="mat-title"><span>${data.emoji}</span><span>${data.label}</span><span style="font-size:8px;color:var(--muted);margin-left:4px">cost per block · drag to drop zone</span></div><div class="mat-cards" id="mc-${cat}"></div>`;
+    const data = MATS[cat];
+    const sec = document.createElement('div'); sec.className='mat-section';
+    const curMat = cat==='foundation'?h.fMat:cat==='wall'?h.wMat:h.rMat;
+    // Show lock icon if this component is intact from last round
+    const isIntactFromPrev = G.round>1 && ph && ph[cat+'Mat'] && pd && pd[cat==='foundation'?'fDmg':cat==='wall'?'wDmg':'rDmg']===0;
+    const isDamagedFromPrev = G.round>1 && ph && ph[cat+'Mat'] && pd && pd[cat==='foundation'?'fDmg':cat==='wall'?'wDmg':'rDmg']===1;
+    const statusTag = isIntactFromPrev ? '<span style="font-size:9px;color:var(--safe)">✅ Intact — free to keep</span>' :
+                      isDamagedFromPrev ? '<span style="font-size:9px;color:var(--warn)">🔧 Damaged — repair cost applies</span>' : '';
+    sec.innerHTML=`<div class="mat-title"><span>${data.emoji}</span><span>${data.label}</span>${statusTag}<span style="font-size:8px;color:var(--muted);margin-left:auto">drag to drop zone</span></div><div class="mat-cards" id="mc-${cat}"></div>`;
     container.appendChild(sec);
-    const mc=sec.querySelector('#mc-'+cat);
+    const mc = sec.querySelector('#mc-'+cat);
     data.opts.forEach(opt=>{
-      const ic=getIncompat(cat,opt.id,h.fMat,h.wMat);
-      const cur=cat==='foundation'?h.fMat:cat==='wall'?h.wMat:h.rMat;
-      const isSel=cur&&cur.id===opt.id;
-      const isIncompat=!!ic;
-      const addCost=G.round===1&&isSel?0:opt.cost; // free to keep existing in round 1 context
-      const canAdd=!isIncompat&&coinsLeft>=opt.cost&&(cat!=='foundation'||h.fCount<MAX_R);
-      const card=document.createElement('div');card.className='mcard';
-      card.style.background=isSel?opt.col:'rgba(255,255,255,0.025)';
-      card.style.borderColor=isSel?opt.border:isIncompat?'rgba(239,71,111,0.3)':'var(--border)';
-      card.style.opacity=isIncompat||(!canAdd&&!isSel)?'0.38':'1';
-      card.style.cursor=canAdd||isSel?'grab':'not-allowed';
-      card.innerHTML=`<div class="mc-emoji">${opt.emoji}</div><div class="mc-name">${opt.name}</div><div class="mc-stats"><span class="mc-pill" style="background:rgba(232,168,56,0.15);color:var(--amber)">🪙${opt.cost}</span></div>${isIncompat?'<span class="mc-badge" style="color:var(--danger)">🚫</span>':isSel?'<span class="mc-badge" style="color:var(--safe)">✓</span>':''}`;
-      if(canAdd||isSel){
+      const ic = getIncompat(cat,opt.id,h.fMat,h.wMat);
+      const isSel = curMat && curMat.id===opt.id;
+      const isIncompat = !!ic;
+      const unitCost = getComponentCost(p,cat,opt);
+      const canAfford = coinsLeft >= unitCost || (isSel); // selected is already "paid"
+      const canAdd = !isIncompat && canAfford && (cat!=='foundation'||h.fCount<MAX_R);
+      const costLabel = unitCost===0 ? '<span class="mc-pill" style="background:rgba(107,203,119,0.15);color:var(--safe)">FREE</span>' :
+                        unitCost < opt.cost ? `<span class="mc-pill" style="background:rgba(255,209,102,0.15);color:var(--warn)">🔧🪙${unitCost}</span>` :
+                        `<span class="mc-pill" style="background:rgba(232,168,56,0.15);color:var(--amber)">🪙${unitCost}</span>`;
+      const card = document.createElement('div'); card.className='mcard';
+      card.style.background = isSel ? opt.col : 'rgba(255,255,255,0.025)';
+      card.style.borderColor = isSel ? opt.border : isIncompat ? 'rgba(239,71,111,0.3)' : 'var(--border)';
+      card.style.opacity = isIncompat||(!canAdd&&!isSel) ? '0.38' : '1';
+      card.style.cursor = canAdd||isSel ? 'grab' : 'not-allowed';
+      card.innerHTML=`<div class="mc-emoji">${opt.emoji}</div><div class="mc-name">${opt.name}</div><div class="mc-stats">${costLabel}</div>${isIncompat?'<span class="mc-badge" style="color:var(--danger)">🚫</span>':isSel?'<span class="mc-badge" style="color:var(--safe)">✓</span>':''}`;
+      if (canAdd||isSel) {
         card.draggable=true;
         card.addEventListener('dragstart',e=>{dragging={cat,optId:opt.id};e.dataTransfer.setData('text/plain','');});
         card.addEventListener('dragend',()=>{dragging=null;});
-        card.addEventListener('click',()=>placeBlock(p,cat,opt,coinsLeft));
-      } else if(isIncompat){ card.addEventListener('click',()=>toast('🚫 '+ic)); }
+        card.addEventListener('click',()=>placeBlock(p,cat,opt));
+      } else if (isIncompat) { card.addEventListener('click',()=>toast('🚫 '+ic)); }
       mc.appendChild(card);
     });
-    // Drop zones
+    // Drop zone
     const dzw=document.createElement('div');dzw.className='drop-zone-row';
-    const dz=document.createElement('div');dz.className='drop-zone';dz.textContent='⬅ Drop to add room →';
+    const dz=document.createElement('div');dz.className='drop-zone';
+    dz.textContent=cat==='foundation'?'⬅ Drop to add room →':'⬅ Drop to place →';
     dz.addEventListener('dragover',e=>{e.preventDefault();dz.classList.add('active-dz');});
     dz.addEventListener('dragleave',()=>dz.classList.remove('active-dz'));
-    dz.addEventListener('drop',e=>{e.preventDefault();dz.classList.remove('active-dz');if(dragging&&dragging.cat===cat){const o=data.opts.find(x=>x.id===dragging.optId);if(o)placeBlock(p,cat,o,coinsLeft);}});
+    dz.addEventListener('drop',e=>{e.preventDefault();dz.classList.remove('active-dz');
+      if(dragging&&dragging.cat===cat){const o=data.opts.find(x=>x.id===dragging.optId);if(o)placeBlock(p,cat,o);}});
     dzw.appendChild(dz);
     sec.appendChild(dzw);
   });
@@ -1468,43 +1547,66 @@ function renderBuildPhase(container, p) {
   // Discussion prompt
   const qMap={1:'Why might families choose cheaper materials — is it purely about money, or are there other factors?',
                2:'After this first flood, what do you now understand about material choices that you didn\'t before?',
-               3:'This is the last flood. What trade-offs did you make across all three rounds?'};
+               3:'This is the last round. What trade-offs did you make across all three seasons?'};
   addDiscuss(container, qMap[G.round]||'');
 
-  const btn=document.createElement('button');
-  btn.className='action-btn '+(isComplete?'primary':'disabled');
-  btn.textContent=isComplete?'✅ Confirm Build — Face the Flood':!h.fCount?'Drop a foundation first':h.wCount<h.fCount?`Add ${h.fCount-h.wCount} more wall block(s)`:h.rCount<rTarget?`Add ${rTarget-h.rCount} more roof block(s)`:'Complete your house';
-  btn.onclick=()=>{
-    if(!isComplete)return;
-    const calcSpent=Math.max(0,(h.fMat?h.fMat.cost:0)*h.fCount+(h.wMat?h.wMat.cost:0)*h.wCount+(h.rMat?h.rMat.cost:0)*rMult-baseFree);
-    p.savedCoins=p.coins-calcSpent;
-    G.phase='flood';
+  const btn = document.createElement('button');
+  btn.className = 'action-btn '+(isComplete?'primary':'disabled');
+  btn.textContent = isComplete ? '✅ Confirm Build — Face the Flood' :
+    !h.fCount ? 'Drop a foundation first' :
+    h.wCount<h.fCount ? `Add ${h.fCount-h.wCount} more wall block(s)` :
+    h.rCount<rTarget ? `Add ${rTarget-h.rCount} more roof block(s)` : 'Complete your house';
+  btn.onclick = () => {
+    if (!isComplete) return;
+    p.savedCoins = Math.max(0, p.coins - calcHouseSpend(p));
+    G.phase = 'flood';
     startFlood();
     updateGameUI();
   };
   container.appendChild(btn);
 }
 
-function placeBlock(p,cat,opt,coinsLeft){
-  const h=p.house;
-  const ic=getIncompat(cat,opt.id,h.fMat,h.wMat);
-  if(ic){toast('🚫 '+ic);return;}
-  if(cat==='wall'&&h.fCount===0){toast('Place a foundation first!');return;}
-  if(cat==='wall'&&h.wCount>=h.fCount){toast('Need more foundation blocks first!');return;}
-  if(cat==='roof'){if(h.wCount===0){toast('Add walls first!');return;} const maxR=h.stacked?1:h.wCount; if(h.rCount>=maxR){toast(h.stacked?'One roof covers stacked house!':'Add more wall blocks first!');return;}}
-  if(cat==='foundation'&&h.fCount>=MAX_R){toast('Max 4 rooms!');return;}
-  const cur=cat==='foundation'?h.fMat:cat==='wall'?h.wMat:h.rMat;
-  if(cur&&cur.id!==opt.id){
-    if(cat==='foundation'){h.fCount=0;h.wCount=0;h.rCount=0;h.fMat=null;h.wMat=null;h.rMat=null;}
-    else if(cat==='wall'){h.wCount=0;h.wMat=null;h.rCount=0;h.rMat=null;}
-    else{h.rCount=0;h.rMat=null;}
-    toast('Material changed — drop again to place');rebuildPlot();updateGameUI();return;
+function placeBlock(p, cat, opt) {
+  const h = p.house;
+  const ic = getIncompat(cat, opt.id, h.fMat, h.wMat);
+  if (ic) { toast('🚫 ' + ic); return; }
+  if (cat==='wall' && h.fCount===0) { toast('Place a foundation first!'); return; }
+  if (cat==='wall' && h.wCount>=h.fCount) { toast('Need more foundation blocks first!'); return; }
+  if (cat==='roof') {
+    if (h.wCount===0) { toast('Add walls first!'); return; }
+    const maxR = h.stacked ? 1 : h.wCount;
+    if (h.rCount>=maxR) { toast(h.stacked?'One roof covers stacked house!':'Add more wall blocks first!'); return; }
   }
-  if(coinsLeft<opt.cost&&!(G.round===1&&cur&&cur.id===opt.id)){toast('🪙 Not enough coins!');return;}
-  if(cat==='foundation'){h.fMat=opt;h.fCount++;}
-  else if(cat==='wall'){h.wMat=opt;h.wCount++;}
-  else{h.rMat=opt;h.rCount++;}
-  rebuildPlot();updateGameUI();
+  if (cat==='foundation' && h.fCount>=MAX_R) { toast('Max 4 rooms!'); return; }
+
+  const cur = cat==='foundation' ? h.fMat : cat==='wall' ? h.wMat : h.rMat;
+  if (cur && cur.id !== opt.id) {
+    // Material change — only reset this layer and above (NOT below)
+    if (cat==='foundation') {
+      // Changing foundation resets everything
+      h.fCount=0; h.wCount=0; h.rCount=0; h.fMat=null; h.wMat=null; h.rMat=null;
+    } else if (cat==='wall') {
+      // Changing wall only resets wall + roof; foundation stays
+      h.wCount=0; h.wMat=null; h.rCount=0; h.rMat=null;
+    } else {
+      // Changing roof only resets roof
+      h.rCount=0; h.rMat=null;
+    }
+    toast('Material changed — drop again to place');
+    rebuildPlot(); updateGameUI(); return;
+  }
+
+  // Afford check (cost for this unit)
+  const unitCost = getComponentCost(p, cat, opt);
+  const spent = calcHouseSpend(p);
+  const coinsLeft = p.coins - spent;
+  // Only charge if adding a new block (not re-confirming existing selection)
+  if (!cur && coinsLeft < unitCost) { toast('🪙 Not enough coins!'); return; }
+
+  if (cat==='foundation') { h.fMat=opt; h.fCount++; }
+  else if (cat==='wall')  { h.wMat=opt; h.wCount++; }
+  else                    { h.rMat=opt; h.rCount++; }
+  rebuildPlot(); updateGameUI();
 }
 function removeBlock(p,cat){
   const h=p.house;
@@ -1636,9 +1738,23 @@ function renderDamagePhase(container){
 
   const btn=document.createElement('button');btn.className='action-btn flood';btn.textContent='📋 Apply Damage & Continue';
   btn.onclick=()=>{
-    p.damage={...res};
-    if(res.overall===2){ p.house={fCount:0,wCount:0,rCount:0,fMat:null,wMat:null,rMat:null,stacked:false}; }
-    p.roundLog.push({round:G.round,fMat:p.house.fMat,wMat:p.house.wMat,rMat:p.house.rMat,fCount:p.house.fCount,stacked:p.house.stacked,damage:{...res},playedAces:[...p.playedAces]});
+    // Snapshot BEFORE modifying house
+    p.prevHouse   = { fMat:p.house.fMat, wMat:p.house.wMat, rMat:p.house.rMat,
+                      fCount:p.house.fCount, wCount:p.house.wCount, rCount:p.house.rCount,
+                      stacked:p.house.stacked };
+    p.prevDamage  = {...res};
+    p.damage = {...res};
+    if (res.overall===2) {
+      // House completely destroyed — clear it, player must rebuild from scratch
+      p.house = {fCount:0,wCount:0,rCount:0,fMat:null,wMat:null,rMat:null,stacked:false};
+    }
+    p.roundLog.push({
+      round:G.round,
+      fMat:p.prevHouse.fMat, wMat:p.prevHouse.wMat, rMat:p.prevHouse.rMat,
+      fCount:p.prevHouse.fCount, stacked:p.prevHouse.stacked,
+      coinsSpent: p.coins - p.savedCoins,
+      damage:{...res}, playedAces:[...p.playedAces]
+    });
     if(tsRef) buildPlayerPlot(tsRef,p,p.damage);
     G.phase='result'; updateGameUI();
   };
@@ -1658,7 +1774,9 @@ function renderResultPhase(container){
   card.style.borderColor=DMG_COLORS[res.overall];
   card.innerHTML=`<div style="font-size:28px;margin-bottom:6px">${res.overall===0?'🏠':res.overall===1?'🔧':'☠️'}</div>
     <div style="font-size:14px;font-weight:800;color:${DMG_COLORS[res.overall]}">${['House Survived','Needs Repairs','Complete Collapse'][res.overall]}</div>
-    <div style="font-size:11px;color:var(--muted);margin-top:4px">${p.house.fMat?p.house.fMat.name+' + '+p.house.wMat.name+' + '+p.house.rMat.name:'Collapsed — rebuild next round'}</div>
+    <div style="font-size:11px;color:var(--muted);margin-top:4px">${p.prevHouse&&p.prevHouse.fMat?p.prevHouse.fMat.name+' + '+p.prevHouse.wMat.name+' + '+p.prevHouse.rMat.name:'No house built'}</div>
+    ${res.overall===2?`<div style="font-size:11px;color:var(--danger);margin-top:6px">⚠️ You must build from scratch next round — no free starter.</div>`:''}
+    ${res.overall===1?`<div style="font-size:11px;color:var(--warn);margin-top:6px">You can repair damaged parts at half cost next round, or upgrade them for full cost.</div>`:''}
     <div style="margin-top:6px"><span class="top-zone-pill" style="color:${zone.color};border-color:${zone.color}44;background:${zone.color}11">${zone.emoji} Zone ${p.zone} — ${zone.name}</span></div>`;
   container.appendChild(card);
 
@@ -1676,15 +1794,12 @@ function renderResultPhase(container){
   btn.textContent=G.round<3?`▶ Start Round ${G.round+1}`:'🏆 See Final Results';
   btn.onclick=()=>{
     if(G.round<3){
-      G.round++;G.phase='roll';
-      if(tsRef){tsRef.flooding=false;tsRef.floodY=-10;tsRef.water.position.y=-14;tsRef.wSurf.position.y=-9.99;tsRef.ripples.forEach(r=>{ r.position.y=0.02; });}
-      if(p.damage.overall===2){
-        p.house={fCount:1,wCount:1,rCount:1,fMat:matById('f3'),wMat:matById('w3'),rMat:matById('r3'),stacked:false};
-        p.damage={fDmg:0,wDmg:0,rDmg:0,overall:0};
-        toast(p.name+' rebuilds from a mud hut.');
-      }
-      p.savedCoins=p.savedCoins||0;
-      if(tsRef){buildPlayerPlot(tsRef,p,p.damage);focusOnPlot();}
+      G.round++; G.phase='roll';
+      if(tsRef){tsRef.flooding=false;tsRef.floodY=-10;tsRef.water.position.y=-14;tsRef.wSurf.position.y=-9.99;tsRef.ripples.forEach(r=>{r.position.y=0.02;});}
+      // No auto-rebuild — player starts next round with whatever state the house is in
+      // (empty if collapsed, damaged if repaired, intact if safe)
+      p.savedCoins = p.savedCoins || 0;
+      if(tsRef){ buildPlayerPlot(tsRef,p,p.damage); focusOnPlot(); }
       updateGameUI();
     } else { screen='end'; if(rafRef)cancelAnimationFrame(rafRef); render(); }
   };
@@ -1692,65 +1807,144 @@ function renderResultPhase(container){
 }
 
 // ═══════════════════════════════════════════════════════════════════
-// END SCREEN
+// END SCREEN — Decision Journal + Team Reflection
 // ═══════════════════════════════════════════════════════════════════
 
 function renderEnd(){
-  const p=G.player;
-  const zone=RISK_ZONES[p.zone-1];
-  const div=document.createElement('div');div.className='screen end-screen';
-  const left=document.createElement('div');left.className='end-left';
-  left.innerHTML=`<div class="end-title">🌊 ${G.teamName} — Village Story Over 3 Flood Seasons</div>
-    <div style="font-size:11px;color:var(--muted);margin-bottom:12px;display:flex;align-items:center;gap:6px;flex-wrap:wrap">
-      <span style="color:rgba(243,237,213,0.4)">Team members:</span>
+  const p = G.player;
+  const zone = RISK_ZONES[p.zone-1];
+  const div = document.createElement('div'); div.className='screen end-screen';
+
+  // ── LEFT: Journey timeline ─────────────────────────────────────
+  const left = document.createElement('div'); left.className='end-left';
+  const safeCt = p.roundLog.filter(r=>r.damage.overall===0).length;
+
+  left.innerHTML=`
+    <div class="end-title">📖 ${G.teamName} — Decision Journal</div>
+    <div style="font-size:11px;color:var(--muted);margin-bottom:14px;display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+      <span style="color:rgba(243,237,213,0.4)">Team:</span>
       ${G.members.map(m=>`<span style="background:rgba(232,168,56,0.1);border:1px solid rgba(232,168,56,0.2);border-radius:20px;padding:2px 10px;font-size:10px;font-weight:700;color:var(--amber)">${m}</span>`).join('')}
+      <span style="color:rgba(243,237,213,0.4);margin-left:6px">${zone.emoji} ${zone.name} · Zone ${p.zone}</span>
     </div>`;
 
-  // Outcome card
-  const wCard=document.createElement('div');wCard.className='winner-card';
-  const safeCt=p.roundLog.filter(r=>r.damage.overall===0).length;
-  wCard.innerHTML=`<span style="font-size:40px">${safeCt===3?'🏆':safeCt===2?'🏠':safeCt===1?'🔧':'😔'}</span>
-    <div style="font-family:'Cinzel',serif;font-size:18px;font-weight:700;color:var(--amber);margin-top:10px">👥 ${G.teamName}</div>
-    <div style="font-size:11px;color:var(--muted);margin-top:2px">${G.members.join(' · ')}</div>
-    <div style="font-size:13px;color:var(--muted);margin-top:5px">${zone.emoji} ${zone.name} · Zone ${p.zone}</div>
-    <div style="font-size:13px;color:${DMG_COLORS[safeCt===3?0:safeCt>=1?1:2]};margin-top:8px">${safeCt===3?'All 3 seasons survived — remarkable resilience.':safeCt===2?'2 of 3 seasons survived — a real but fragile story.':safeCt===1?'1 season safe, 2 with damage or collapse. A common story in flood zones.':'No seasons fully safe. This is the reality for many Zone '+(p.zone)+' families.'}</div>`;
-  left.appendChild(wCard);
+  // Outcome summary bar
+  const outcomeBar = document.createElement('div');
+  outcomeBar.style.cssText = 'display:flex;gap:6px;margin-bottom:16px';
+  p.roundLog.forEach((log,i)=>{
+    const lvl = LEVELS[log.round-1];
+    const bar = document.createElement('div');
+    bar.style.cssText = `flex:1;border-radius:10px;padding:10px 8px;text-align:center;background:${DMG_COLORS[log.damage.overall]}12;border:1.5px solid ${DMG_COLORS[log.damage.overall]}44`;
+    bar.innerHTML=`<div style="font-size:18px">${log.damage.overall===0?'🏠':log.damage.overall===1?'🔧':'☠️'}</div>
+      <div style="font-size:10px;font-weight:800;color:${DMG_COLORS[log.damage.overall]};margin-top:3px">${['Safe','Repairs','Collapsed'][log.damage.overall]}</div>
+      <div style="font-size:9px;color:var(--muted);margin-top:2px">${lvl.emoji} Round ${log.round}</div>`;
+    outcomeBar.appendChild(bar);
+  });
+  // Pad empty rounds
+  for(let r=p.roundLog.length;r<3;r++){
+    const bar=document.createElement('div');bar.style.cssText='flex:1;border-radius:10px;padding:10px 8px;text-align:center;background:var(--card);border:1.5px solid var(--border)';bar.innerHTML='<div style="font-size:18px;opacity:0.2">—</div><div style="font-size:9px;color:var(--muted)">Not played</div>';outcomeBar.appendChild(bar);
+  }
+  left.appendChild(outcomeBar);
 
-  // Round-by-round log
+  // Round-by-round decision journal
   [1,2,3].forEach(rnd=>{
-    const log=p.roundLog.find(l=>l.round===rnd);
-    const lvl=LEVELS[rnd-1];
-    const rb=document.createElement('div');rb.className='round-block';
-    if(!log){rb.innerHTML=`<div class="rb-header"><div class="rb-num" style="background:${lvl.color}">${rnd}</div><div style="font-size:13px;font-weight:700;color:var(--muted)">${lvl.emoji} ${lvl.name} — not played</div></div>`;left.appendChild(rb);return;}
-    const mats=log.fMat?`${log.fMat.emoji} ${log.fMat.name} + ${log.wMat.emoji} ${log.wMat.name} + ${log.rMat.emoji} ${log.rMat.name}`:'(collapsed)';
-    rb.innerHTML=`<div class="rb-header"><div class="rb-num" style="background:${lvl.color}">${rnd}</div>
-      <div><div style="font-size:13px;font-weight:700;color:var(--text)">${lvl.emoji} ${lvl.name}</div>
-      <div style="font-size:10px;color:var(--muted)">${mats}</div></div>
-      <span class="dpill dpill-${log.damage.overall}" style="margin-left:auto">${['Safe','Repair','Collapse'][log.damage.overall]}</span></div>
-      ${log.playedAces.length>0?`<div style="font-size:9px;color:rgba(243,237,213,0.35);padding:2px 0 0 34px">Played: ${log.playedAces.map(id=>{const a=ACE_POOL.find(x=>x.id===id);return a?a.emoji+' '+a.name:'?';}).join(', ')}</div>`:''}`;
+    const log = p.roundLog.find(l=>l.round===rnd);
+    const lvl = LEVELS[rnd-1];
+    const rb = document.createElement('div'); rb.className='round-block';
+    if(!log){
+      rb.innerHTML=`<div class="rb-header"><div class="rb-num" style="background:${lvl.color}">${rnd}</div><div style="font-size:13px;font-weight:700;color:var(--muted)">${lvl.emoji} ${lvl.name} — not reached</div></div>`;
+      left.appendChild(rb); return;
+    }
+    const mats = log.fMat ? `${log.fMat.emoji} ${log.fMat.name} + ${log.wMat.emoji} ${log.wMat.name} + ${log.rMat.emoji} ${log.rMat.name}` : '(no house built)';
+    const aceNames = log.playedAces.map(id=>{ const a=ACE_POOL.find(x=>x.id===id); return a?a.emoji+' '+a.name:'?'; });
+    // Narrate what happened
+    const dmg = log.damage;
+    let story = '';
+    if (!log.fMat) {
+      story = 'The team had no house to enter the flood with — they had not been able to build in time.';
+    } else {
+      const fLine = ['The foundation held solid.','The foundation cracked but stood.','The foundation gave way completely.'][dmg.fDmg];
+      const wLine = dmg.fDmg===2 ? 'The walls came down with the foundation.' :
+                    ['The walls were unharmed.','The walls took visible damage.','The walls collapsed.'][dmg.wDmg];
+      const rLine = rnd===3 ? (['The roof was unscathed.','The roof was damaged.','The roof was destroyed.'][dmg.rDmg]) : '';
+      story = [fLine, wLine, rLine].filter(Boolean).join(' ');
+    }
+    rb.innerHTML=`
+      <div class="rb-header">
+        <div class="rb-num" style="background:${lvl.color}">${rnd}</div>
+        <div style="flex:1">
+          <div style="font-size:13px;font-weight:800;color:var(--text)">${lvl.emoji} ${lvl.name}</div>
+          <div style="font-size:10px;color:var(--muted);margin-top:1px">${mats}</div>
+        </div>
+        <span class="dpill dpill-${dmg.overall}" style="align-self:flex-start">${['Safe','Repairs','Collapse'][dmg.overall]}</span>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin:8px 0;font-size:10px">
+        <div style="background:rgba(255,255,255,0.03);border-radius:7px;padding:6px 8px">
+          <div style="color:var(--muted);font-size:9px;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:3px">What the team chose</div>
+          <div style="color:var(--text)">${mats}</div>
+          ${log.coinsSpent!==undefined?`<div style="color:var(--amber);margin-top:3px;font-size:9px">🪙 ${log.coinsSpent} coins spent</div>`:''}
+          ${aceNames.length>0?`<div style="color:#FFD166;margin-top:3px;font-size:9px">🃏 ${aceNames.join(', ')}</div>`:''}
+        </div>
+        <div style="background:rgba(255,255,255,0.03);border-radius:7px;padding:6px 8px">
+          <div style="color:var(--muted);font-size:9px;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:3px">What happened</div>
+          <div style="color:rgba(243,237,213,0.75);line-height:1.5">${story}</div>
+          <div style="margin-top:4px;display:flex;gap:5px;flex-wrap:wrap">
+            ${[['F',dmg.fDmg],['W',dmg.wDmg],rnd===3?['R',dmg.rDmg]:null].filter(Boolean).map(([l,d])=>`<span class="dpill dpill-${d}" style="font-size:8px">${l}: ${['OK','🔧','☠️'][d]}</span>`).join('')}
+          </div>
+        </div>
+      </div>
+      ${dmg.notes&&dmg.notes.length?`<div style="font-size:9px;color:rgba(243,237,213,0.3);padding:0 2px">${dmg.notes.map(n=>'› '+n).join('  ')}</div>`:''}`;
     left.appendChild(rb);
   });
 
+  // ── Team reflection: decision-making deep dive ─────────────────
+  const refBlock = document.createElement('div');
+  refBlock.style.cssText = 'background:rgba(43,125,191,0.07);border:1px solid rgba(43,125,191,0.2);border-radius:14px;padding:16px;margin-top:16px';
+  const outcome = safeCt===3?'survived all three floods':safeCt===2?'survived two out of three floods':safeCt===1?'survived only one flood':'lost their home in every flood';
+  refBlock.innerHTML=`
+    <div style="font-family:'Cinzel',serif;font-size:14px;font-weight:700;color:var(--text);margin-bottom:4px">🪞 How Your Team Made Decisions</div>
+    <div style="font-size:12px;color:var(--muted);margin-bottom:14px">Your household <strong style="color:var(--text)">${outcome}</strong>. Now look back at <em>how</em> you decided, not just <em>what</em> you decided.</div>
+
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <div style="background:rgba(255,255,255,0.04);border-radius:10px;padding:12px;border-left:3px solid var(--river)">
+        <div style="font-size:10px;font-weight:800;color:#90CAF9;text-transform:uppercase;letter-spacing:1px;margin-bottom:5px">🧠 Individual vs Group Thinking</div>
+        <div style="font-size:12px;color:rgba(163,210,255,0.85);line-height:1.7">Did each team member have a different instinct about which materials to pick? Who changed their mind during discussion — and what made them change? Did talking together lead to a <em>better</em> decision, or did the group default to one person's opinion?</div>
+      </div>
+      <div style="background:rgba(255,255,255,0.04);border-radius:10px;padding:12px;border-left:3px solid var(--amber)">
+        <div style="font-size:10px;font-weight:800;color:var(--amber);text-transform:uppercase;letter-spacing:1px;margin-bottom:5px">💰 Money and Risk Under Pressure</div>
+        <div style="font-size:12px;color:rgba(243,230,180,0.8);line-height:1.7">When the dice gave you a small budget, did your team immediately reach for cheap materials — or did you slow down and think about the flood risk? In real life, do you think people under financial pressure make <em>riskier</em> choices or <em>safer</em> ones? What does this simulation say about that?</div>
+      </div>
+      <div style="background:rgba(255,255,255,0.04);border-radius:10px;padding:12px;border-left:3px solid var(--leaf)">
+        <div style="font-size:10px;font-weight:800;color:var(--leaf);text-transform:uppercase;letter-spacing:1px;margin-bottom:5px">🎲 Luck, Control, and Blame</div>
+        <div style="font-size:12px;color:rgba(180,230,170,0.8);line-height:1.7">How much of your outcome felt within your control? When the damage was bad, did your team feel it was "unlucky" or "the wrong choice"? In real flood events, how do communities assign blame — and is it fair?</div>
+      </div>
+      <div style="background:rgba(255,255,255,0.04);border-radius:10px;padding:12px;border-left:3px solid var(--earth)">
+        <div style="font-size:10px;font-weight:800;color:var(--earth);text-transform:uppercase;letter-spacing:1px;margin-bottom:5px">🔁 Does This Reflect Real Life?</div>
+        <div style="font-size:12px;color:rgba(230,190,150,0.8);line-height:1.7">Think of a real decision your team has faced under time pressure or limited resources. Did you discuss it the same way? What would you do differently — in the game, or in real life — if you had one more round?</div>
+      </div>
+    </div>`;
+  left.appendChild(refBlock);
   div.appendChild(left);
 
-  // Right: reflections & learnings
-  const right=document.createElement('div');right.className='end-right';
-  right.innerHTML=`<div style="font-family:'Cinzel',serif;font-size:14px;font-weight:700;color:var(--text);margin-bottom:14px">💬 Final Reflection</div>
-    ${['Did your Zone assignment feel fair? Does randomness in life feel fair?',
-       'What single change — material, location, or policy — would have the biggest impact on flood resilience?',
-       'Which real-world family do you think your story most resembles?',
-       'What does this simulation leave out that real flood survivors would tell you?',
-       'If you were advising a government, what is the first thing you would change?']
-      .map(q=>`<div style="font-size:12px;color:rgba(163,210,255,0.8);line-height:1.6;margin-bottom:10px;padding-left:12px;border-left:2px solid rgba(43,125,191,0.3)">${q}</div>`).join('')}
-    <div style="height:1px;background:var(--border);margin:12px 0"></div>
-    <div style="font-family:'Cinzel',serif;font-size:13px;font-weight:700;color:var(--text);margin-bottom:10px">🌱 Key Insights</div>
-    ${['Zone placement — often beyond individual control — matters as much as material quality.',
-       'Mud is not "bad" — it is often the only affordable choice, and skilled mud construction can outperform cheap concrete.',
-       'Stacking floors is an ancient flood-adaptation strategy still used across South Asia.',
-       'The dice (randomness) reflect real unpredictability: soil variation, storm path, drainage failure.',
-       'Ace Cards represent access to resources, information, and government support — unevenly distributed.',
-       'After collapse, rebuilding with the same materials in the same place is common — poverty traps are real.']
-      .map(t=>`<div class="learn-item"><span style="color:var(--amber)">✦</span><span>${t}</span></div>`).join('')}
+  // ── RIGHT: Key learnings + final insight ──────────────────────
+  const right = document.createElement('div'); right.className='end-right';
+  right.innerHTML=`
+    <div style="font-family:'Cinzel',serif;font-size:14px;font-weight:700;color:var(--text);margin-bottom:6px">🏆 Final Score</div>
+    <div style="font-size:28px;text-align:center;margin-bottom:6px">${safeCt===3?'🏠🏠🏠':safeCt===2?'🏠🏠☁️':safeCt===1?'🏠💧💧':'💧💧💧'}</div>
+    <div style="text-align:center;font-size:13px;color:${DMG_COLORS[safeCt===3?0:safeCt>=1?1:2]};font-weight:700;margin-bottom:4px">${safeCt}/3 Seasons Survived</div>
+    <div style="text-align:center;font-size:11px;color:var(--muted);margin-bottom:16px">${zone.emoji} ${zone.name}</div>
+
+    <div style="height:1px;background:var(--border);margin:10px 0"></div>
+    <div style="font-family:'Cinzel',serif;font-size:12px;font-weight:700;color:var(--text);margin-bottom:10px">🌱 What the Research Shows</div>
+    ${[
+      ['Zone placement','Often beyond individual control — it is the single biggest predictor of flood damage, larger than material quality.'],
+      ['Mud is rational','In many contexts, well-compacted earthen construction outperforms cheap concrete. Skilled knowledge matters as much as material.'],
+      ['Stacking floors','One of the oldest flood-adaptation strategies in South Asia — lifting the living space above the flood line.'],
+      ['Randomness is real','Soil variability, storm path, and drainage timing make real floods genuinely unpredictable — the dice are not wrong.'],
+      ['Ace Cards & equity','Real-world interventions (sandbags, drainage, waterproofing) are unevenly accessible. Wealthier households use them more.'],
+      ['Collapse & return','After losing a home, most families rebuild in the same place. Attachment, land rights, and poverty make moving almost impossible.'],
+    ].map(([t,d])=>`<div class="learn-item"><span style="color:var(--amber);flex-shrink:0">✦</span><div><strong style="color:var(--text);font-size:10px">${t}:</strong> <span style="font-size:10px">${d}</span></div></div>`).join('')}
+
+    <div style="height:1px;background:var(--border);margin:10px 0"></div>
     <button class="home-btn" onclick="goHome()">🏡 Play Again</button>`;
   div.appendChild(right);
   return div;
