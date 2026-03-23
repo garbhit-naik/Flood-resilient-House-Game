@@ -2,7 +2,9 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8"/>
-<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="theme-color" content="#0c1a0e"/>
 <title>Flood & Foundation — Village Builder</title>
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;900&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -23,7 +25,7 @@
   --danger: #EF476F;
 }
 *{box-sizing:border-box;margin:0;padding:0}
-html,body{width:100%;height:100%;background:var(--bg);font-family:'Nunito',sans-serif;overflow:hidden;color:var(--text)}
+html,body{width:100%;height:100%;background:var(--bg);font-family:'Nunito',sans-serif;overflow:hidden;color:var(--text);touch-action:manipulation;overscroll-behavior:none;-webkit-tap-highlight-color:transparent}
 #root{width:100%;height:100%;display:flex;flex-direction:column}
 button{cursor:pointer;font-family:'Nunito',sans-serif}
 input{font-family:'Nunito',sans-serif}
@@ -73,6 +75,46 @@ input{font-family:'Nunito',sans-serif}
 .left-panel{width:60%;display:flex;flex-direction:column;overflow:hidden;position:relative}
 .right-panel{width:40%;background:#0b160d;border-left:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden}
 
+/* Mobile tab bar (hidden on desktop) */
+.mobile-tabs{display:none;flex-shrink:0;background:#0b160d;border-top:1px solid var(--border)}
+.mob-tab{flex:1;padding:10px 4px;border:none;background:transparent;color:var(--muted);font-size:11px;font-weight:700;font-family:'Nunito',sans-serif;display:flex;flex-direction:column;align-items:center;gap:2px}
+.mob-tab.active{color:var(--amber)}
+.mob-tab-icon{font-size:18px}
+
+@media(max-width:700px){
+  .game-screen{flex-direction:column}
+  .left-panel{width:100%;flex:1;min-height:0}
+  .right-panel{width:100%;border-left:none;border-top:1px solid var(--border);flex:1;min-height:0;display:none}
+  .right-panel.mob-active{display:flex}
+  .left-panel.mob-hidden{display:none}
+  .mobile-tabs{display:flex}
+  .canvas-wrap{min-height:180px}
+  .setup-bg{overflow-y:auto;align-items:flex-start;justify-content:flex-start;padding:16px 12px 32px}
+  .setup-wrap{padding:12px;gap:14px}
+  .setup-title{font-size:26px}
+  .setup-card{padding:16px 14px}
+  .zone-reveal{overflow-y:auto;align-items:flex-start;justify-content:flex-start;padding:12px}
+  .zone-card{padding:22px 16px;margin:0;width:100%}
+  .zone-emoji-big{font-size:48px}
+  .zone-name{font-size:22px}
+  .end-screen{flex-direction:column;overflow-y:auto}
+  .end-left{padding:14px;overflow-y:visible}
+  .end-right{width:100%;border-left:none;border-top:1px solid var(--border);overflow-y:visible}
+  .stats-row{gap:4px}
+  .stat-box{padding:6px 4px}
+  .mat-cards{gap:4px}
+  .mcard{padding:6px 3px}
+  .mc-emoji{font-size:16px}
+  .mat-section{padding:8px 6px}
+  .build-strip{gap:3px}
+  .bsbox{padding:6px 4px}
+  .dice-area{padding:12px}
+  .die{width:46px;height:46px;font-size:22px}
+  .rp-scroll{padding:8px 10px 80px} /* extra bottom for mobile chrome nav bar */
+  .topbar{flex-wrap:wrap;padding:5px 10px;gap:6px}
+  .top-player span:last-child{display:none} /* hide member names in topbar on mobile */
+}
+
 /* topbar */
 .topbar{background:rgba(0,0,0,0.45);border-bottom:1px solid var(--border);padding:7px 14px;display:flex;align-items:center;gap:10px;flex-shrink:0}
 .top-zone-pill{padding:3px 11px;border-radius:14px;font-size:10px;font-weight:800;letter-spacing:0.5px;border:1px solid}
@@ -82,7 +124,7 @@ input{font-family:'Nunito',sans-serif}
 
 /* 3D canvas */
 .canvas-wrap{flex:1;position:relative;overflow:hidden}
-canvas{width:100%!important;height:100%!important;display:block}
+canvas{width:100%!important;height:100%!important;display:block;touch-action:none}
 .flood-label{position:absolute;top:12px;left:50%;transform:translateX(-50%);background:rgba(21,72,152,0.92);color:#fff;border-radius:20px;padding:7px 22px;font-size:14px;font-weight:700;pointer-events:none;display:none;font-family:'Cinzel',serif}
 .canvas-hint{position:absolute;bottom:12px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.6);color:rgba(255,255,255,0.55);border-radius:20px;padding:5px 16px;font-size:11px;pointer-events:none;white-space:nowrap}
 .orbit-btn{position:absolute;top:10px;right:10px;padding:5px 12px;border-radius:20px;border:none;background:rgba(255,255,255,0.1);color:var(--text);font-size:11px;font-weight:700}
@@ -91,7 +133,7 @@ canvas{width:100%!important;height:100%!important;display:block}
 .rp-header{padding:12px 14px 8px;border-bottom:1px solid var(--border);flex-shrink:0}
 .rp-phase{font-size:10px;color:var(--muted);margin-bottom:2px;letter-spacing:1px;text-transform:uppercase}
 .rp-title{font-size:15px;font-weight:800;color:var(--text);font-family:'Cinzel',serif}
-.rp-scroll{flex:1;overflow-y:auto;padding:10px 12px 20px}
+.rp-scroll{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:10px 12px 20px}
 
 /* elder dialogue */
 .elder-box{background:rgba(232,168,56,0.07);border:1px solid rgba(232,168,56,0.2);border-radius:12px;padding:10px 12px;margin-bottom:10px;display:flex;gap:10px;align-items:flex-start}
@@ -200,9 +242,16 @@ canvas{width:100%!important;height:100%!important;display:block}
 /* toast */
 .toast-msg{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:rgba(10,20,10,0.96);border:1px solid rgba(232,168,56,0.3);color:var(--text);border-radius:14px;padding:9px 20px;font-size:12px;font-weight:700;pointer-events:none;z-index:100;max-width:300px;text-align:center;box-shadow:0 4px 20px rgba(0,0,0,0.5)}
 
+/* touch-friendly tap targets & selected card state */
+.mcard{min-height:72px}
+.mcard.tap-selected{outline:2px solid var(--amber);outline-offset:2px;transform:translateY(-3px);box-shadow:0 4px 18px rgba(232,168,56,0.4)}
+.drop-zone{min-height:50px;display:flex;align-items:center;justify-content:center}
+.acard{min-height:44px}
+.action-btn{min-height:50px}
+
 /* layout toggles */
 .lay-toggle{display:flex;gap:5px;margin-bottom:8px}
-.lay-btn{padding:4px 10px;border-radius:8px;border:none;font-size:10px;font-weight:700;transition:all 0.2s}
+.lay-btn{padding:6px 12px;border-radius:8px;border:none;font-size:10px;font-weight:700;transition:all 0.2s;min-height:36px}
 </style>
 </head>
 <body>
@@ -1109,7 +1158,8 @@ let screen = 'setup'; // setup | zoneReveal | game | end
 let tsRef = null, rafRef = null;
 let orb = {on:false,lx:0,ly:0};
 let autoRot = false;
-let dragging = null;
+let dragging = null;          // desktop drag (HTML5 drag API)
+let tapSelected = null;       // touch/tap: {cat, opt} currently selected card
 let setupTeamName = '';
 let setupMembers = ['',''];  // 2–5 member names
 let pendingZone = null;
@@ -1159,7 +1209,7 @@ function renderSetup() {
         ${setupMembers.length<5?`<button id="add-member" style="width:100%;padding:8px;border-radius:8px;border:1.5px dashed rgba(255,255,255,0.15);background:transparent;color:rgba(243,237,213,0.35);font-size:12px;font-weight:700;margin-bottom:4px">+ Add member</button>`:''}
         <button class="start-btn" id="start-btn" ${canStart?'':'disabled'}>Enter the Village →</button>
       </div>
-      <div style="font-size:11px;color:rgba(243,237,213,0.3);text-align:center;max-width:340px;line-height:1.6">3 flood rounds · 1 shared plot per team · zone randomly assigned<br>Inspired by flood-adaptation challenges in South Asia</div>
+      <div style="font-size:11px;color:rgba(243,237,213,0.3);text-align:center;max-width:340px;line-height:1.6">3 flood rounds · 1 shared plot per team · zone randomly assigned (1–3)<br>Inspired by flood-adaptation challenges in South Asia</div>
     </div>
   `;
   // Render member rows
@@ -1191,7 +1241,7 @@ function renderSetup() {
   teamInp.addEventListener('keydown',e=>{ if(e.key==='Enter'&&canStart) doStart(); });
   function doStart() {
     if(!setupTeamName.trim()||setupMembers.filter(m=>m.trim()).length<2) return;
-    pendingZone = Math.ceil(Math.random()*5);
+    pendingZone = Math.ceil(Math.random()*3); // Zones 1–3 only
     screen='zoneReveal'; render();
   }
   return div;
@@ -1205,12 +1255,12 @@ function renderZoneReveal() {
   const z = RISK_ZONES[pendingZone-1];
   const div = document.createElement('div');
   div.className = 'screen zone-reveal';
-  const pips = Array.from({length:5},(_,i)=>`<div class="risk-pip" style="background:${i<pendingZone?z.color:'rgba(255,255,255,0.1)'}"></div>`).join('');
+  const pips = Array.from({length:3},(_,i)=>`<div class="risk-pip" style="background:${i<pendingZone?z.color:'rgba(255,255,255,0.1)'}"></div>`).join('');
   div.innerHTML = `
     <div class="zone-card">
       <div style="font-size:12px;color:rgba(243,237,213,0.4);letter-spacing:2px;text-transform:uppercase;margin-bottom:18px">The village council has assigned your plot…</div>
       <span class="zone-emoji-big">${z.emoji}</span>
-      <div class="zone-num">Risk Zone ${pendingZone} of 5</div>
+      <div class="zone-num">Risk Zone ${pendingZone} of 3</div>
       <div class="zone-name" style="color:${z.color}">${z.name}</div>
       <div class="zone-risk-bar">${pips}</div>
       <div class="zone-desc">${z.desc}</div>
@@ -1242,6 +1292,11 @@ function initScene() {
   canvas.addEventListener('mousedown',e=>{ orb={on:true,lx:e.clientX,ly:e.clientY}; });
   window.addEventListener('mousemove',e=>{ if(!orb.on||!tsRef)return; const dx=e.clientX-orb.lx,dy=e.clientY-orb.ly; tsRef.sph.th-=dx*0.007; tsRef.sph.ph=Math.max(0.08,Math.min(1.4,tsRef.sph.ph+dy*0.007)); tsRef.syncCam(); orb={on:true,lx:e.clientX,ly:e.clientY}; });
   window.addEventListener('mouseup',()=>{ orb.on=false; });
+
+  // Touch orbit (single finger pan = rotate camera)
+  canvas.addEventListener('touchstart', e=>{ if(e.touches.length===1){ e.preventDefault(); orb={on:true,lx:e.touches[0].clientX,ly:e.touches[0].clientY}; }}, {passive:false});
+  canvas.addEventListener('touchmove',  e=>{ if(!orb.on||!tsRef||e.touches.length!==1)return; e.preventDefault(); const dx=e.touches[0].clientX-orb.lx, dy=e.touches[0].clientY-orb.ly; tsRef.sph.th-=dx*0.007; tsRef.sph.ph=Math.max(0.08,Math.min(1.4,tsRef.sph.ph+dy*0.007)); tsRef.syncCam(); orb={on:true,lx:e.touches[0].clientX,ly:e.touches[0].clientY}; }, {passive:false});
+  canvas.addEventListener('touchend',   ()=>{ orb.on=false; });
   const animate=()=>{
     rafRef=requestAnimationFrame(animate);
     if(!tsRef)return;
@@ -1283,7 +1338,7 @@ function buildGameShell() {
   const div = document.createElement('div');
   div.className = 'screen game-screen';
   div.innerHTML = `
-    <div class="left-panel">
+    <div class="left-panel" id="left-panel">
       <div class="topbar" id="topbar"></div>
       <div class="canvas-wrap">
         <canvas id="game-canvas"></canvas>
@@ -1292,15 +1347,41 @@ function buildGameShell() {
         <div class="canvas-hint" id="canvas-hint"></div>
       </div>
     </div>
-    <div class="right-panel">
+    <div class="right-panel" id="right-panel">
       <div class="rp-header" id="rp-header"></div>
       <div class="rp-scroll" id="rp-scroll"></div>
     </div>
+    <nav class="mobile-tabs" id="mobile-tabs">
+      <button class="mob-tab active" id="tab-scene" onclick="switchMobTab('scene')">
+        <span class="mob-tab-icon">🏡</span><span>Village</span>
+      </button>
+      <button class="mob-tab" id="tab-actions" onclick="switchMobTab('actions')">
+        <span class="mob-tab-icon">🎲</span><span>Actions</span>
+      </button>
+    </nav>
     <div class="toast-msg" id="toast-el" style="display:none"></div>
   `;
   div.querySelector('#orbit-btn').onclick=()=>{ autoRot=!autoRot; if(tsRef)tsRef.autoRot=autoRot; div.querySelector('#orbit-btn').textContent=autoRot?'⏹ Stop':'🔄 Orbit'; };
   return div;
 }
+
+function switchMobTab(tab) {
+  const lp = document.getElementById('left-panel');
+  const rp = document.getElementById('right-panel');
+  const ts = document.getElementById('tab-scene');
+  const ta = document.getElementById('tab-actions');
+  if (!lp||!rp) return;
+  if (tab==='scene') {
+    lp.classList.remove('mob-hidden'); rp.classList.remove('mob-active');
+    if(ts) ts.classList.add('active');
+    if(ta) ta.classList.remove('active');
+  } else {
+    lp.classList.add('mob-hidden'); rp.classList.add('mob-active');
+    if(ta) ta.classList.add('active');
+    if(ts) ts.classList.remove('active');
+  }
+}
+window.switchMobTab = switchMobTab;
 
 function updateGameUI() {
   const p = G.player;
@@ -1311,7 +1392,7 @@ function updateGameUI() {
   const tb = document.getElementById('topbar');
   if(tb) tb.innerHTML=`
     <div class="top-round-badge" style="background:${lvl.color}">${lvl.emoji} Round ${G.round}/3</div>
-    <div class="top-zone-pill" style="color:${zone.color};border-color:${zone.color}44;background:${zone.color}11">${zone.emoji} Zone ${p.zone}</div>
+    <div class="top-zone-pill" style="color:${zone.color};border-color:${zone.color}44;background:${zone.color}11">${zone.emoji} Zone ${p.zone}/3</div>
     <div class="top-player" style="display:flex;flex-direction:column;gap:1px">
       <span style="font-size:12px;font-weight:800;color:var(--amber)">👥 ${G.teamName}</span>
       <span style="font-size:9px;color:rgba(243,237,213,0.4)">${G.members.join(' · ')}</span>
@@ -1319,13 +1400,25 @@ function updateGameUI() {
     <button class="home-link" onclick="goHome()">✕ Exit</button>
   `;
   const hint = document.getElementById('canvas-hint');
-  if(hint) hint.textContent = G.phase==='build'?'Drag material cards onto drop zones · drag scene to orbit':'';
+  const isTouch = navigator.maxTouchPoints > 0;
+  if(hint) hint.textContent = G.phase==='build' ? (isTouch?'Tap a card, then tap ✚ zone to place · drag to orbit':'Drag cards onto drop zones · drag scene to orbit') : '';
   // Right panel
   const rph = document.getElementById('rp-header');
   const rps = document.getElementById('rp-scroll');
   if(!rph||!rps)return;
   rph.innerHTML=`<div class="rp-phase">${phaseNames[G.phase]||''}</div><div class="rp-title">${lvl.name}</div>`;
   rps.innerHTML='';
+  // Update mobile actions tab icon to reflect current phase
+  const tabActions = document.getElementById('tab-actions');
+  if (tabActions) {
+    const phaseIcon = {roll:'🎲', build:'🏗️', flood:'🌊', aceplay:'🃏', damage:'💥', result:'📋'};
+    const icon = tabActions.querySelector('.mob-tab-icon');
+    if (icon) icon.textContent = phaseIcon[G.phase] || '🎲';
+  }
+  // On mobile, auto-switch to actions panel for interactive phases; scene for flood
+  if (G.phase==='flood') { switchMobTab('scene'); }
+  else if (['roll','build','aceplay','damage','result'].includes(G.phase)) { switchMobTab('actions'); }
+  if (G.phase !== 'build') tapSelected = null; // clear card selection when leaving build
   if(G.phase==='roll')   renderRollPhase(rps,p);
   else if(G.phase==='build')  renderBuildPhase(rps,p);
   else if(G.phase==='flood')  renderFloodPhase(rps);
@@ -1412,6 +1505,26 @@ function renderBuildPhase(container, p) {
   const zone = RISK_ZONES[p.zone-1];
   const rTarget = h.stacked ? 1 : h.fCount;
   const isComplete = h.fCount>0 && h.wCount===h.fCount && h.rCount===rTarget;
+
+  // ── Flood safety rule ──────────────────────────────────────────
+  // At least ONE wall floor must sit above the current round's flood line.
+  // Wall floor bottom heights: floor 0 starts at FH, floor 1 at FH+WH, etc.
+  // For a non-stacked house every "room" is floor 0 (all at same height).
+  // For stacked, floor k starts at FH + k*WH.
+  const lvlFloodH = LEVELS[G.round-1].floodH;
+  function wallFloorsAboveFlood(house) {
+    if (!house.wMat || house.wCount === 0) return 0;
+    if (house.stacked) {
+      // Each stacked floor: bottom at FH + k*WH, top at FH + (k+1)*WH
+      return Array.from({length: house.wCount}, (_, k) => FH + k*WH)
+                  .filter(bottom => bottom + WH > lvlFloodH).length;
+    } else {
+      // Side-by-side: all rooms at same elevation, bottom=FH top=FH+WH
+      return (FH + WH > lvlFloodH) ? house.wCount : 0;
+    }
+  }
+  const safeWalls = wallFloorsAboveFlood(h);
+  const safetyOk = !isComplete || safeWalls >= 1; // rule only blocks a complete house
   const spent = calcHouseSpend(p);
   const coinsLeft = p.coins - spent;
   const pd = p.prevDamage;
@@ -1419,10 +1532,16 @@ function renderBuildPhase(container, p) {
 
   // Stats bar
   const s = document.createElement('div');
+  const floodH_display = LEVELS[G.round-1].floodH;
+  const wallsAbove = wallFloorsAboveFlood(h);
   s.innerHTML = `<div class="stats-row">
     <div class="stat-box"><div class="stat-label">Budget 🪙</div><div class="stat-val" style="color:var(--amber)">${p.coins}</div></div>
     <div class="stat-box"><div class="stat-label">Spent 🪙</div><div class="stat-val" style="color:var(--earth)">${spent}</div></div>
     <div class="stat-box"><div class="stat-label">Left 🪙</div><div class="stat-val" style="color:${coinsLeft<1?'var(--danger)':'var(--safe)'}">${coinsLeft}</div></div>
+    <div class="stat-box" title="At least 1 wall floor must be above the flood line">
+      <div class="stat-label">Walls Safe 🌊</div>
+      <div class="stat-val" style="color:${wallsAbove>0?'var(--safe)':'var(--danger)'}">${wallsAbove>0?wallsAbove+'✅':'0⚠️'}</div>
+    </div>
   </div>`;
   container.appendChild(s);
 
@@ -1500,46 +1619,88 @@ function renderBuildPhase(container, p) {
     const data = MATS[cat];
     const sec = document.createElement('div'); sec.className='mat-section';
     const curMat = cat==='foundation'?h.fMat:cat==='wall'?h.wMat:h.rMat;
-    // Show lock icon if this component is intact from last round
     const isIntactFromPrev = G.round>1 && ph && ph[cat+'Mat'] && pd && pd[cat==='foundation'?'fDmg':cat==='wall'?'wDmg':'rDmg']===0;
     const isDamagedFromPrev = G.round>1 && ph && ph[cat+'Mat'] && pd && pd[cat==='foundation'?'fDmg':cat==='wall'?'wDmg':'rDmg']===1;
     const statusTag = isIntactFromPrev ? '<span style="font-size:9px;color:var(--safe)">✅ Intact — free to keep</span>' :
                       isDamagedFromPrev ? '<span style="font-size:9px;color:var(--warn)">🔧 Damaged — repair cost applies</span>' : '';
-    sec.innerHTML=`<div class="mat-title"><span>${data.emoji}</span><span>${data.label}</span>${statusTag}<span style="font-size:8px;color:var(--muted);margin-left:auto">drag to drop zone</span></div><div class="mat-cards" id="mc-${cat}"></div>`;
+    sec.innerHTML=`<div class="mat-title"><span>${data.emoji}</span><span>${data.label}</span>${statusTag}<span style="font-size:8px;color:var(--muted);margin-left:auto">tap to select · tap zone to place</span></div><div class="mat-cards" id="mc-${cat}"></div>`;
     container.appendChild(sec);
     const mc = sec.querySelector('#mc-'+cat);
+
     data.opts.forEach(opt=>{
       const ic = getIncompat(cat,opt.id,h.fMat,h.wMat);
       const isSel = curMat && curMat.id===opt.id;
       const isIncompat = !!ic;
       const unitCost = getComponentCost(p,cat,opt);
-      const canAfford = coinsLeft >= unitCost || (isSel); // selected is already "paid"
-      const canAdd = !isIncompat && canAfford && (cat!=='foundation'||h.fCount<MAX_R);
+      const canAfford = coinsLeft >= unitCost || isSel;
+      const canUse = !isIncompat && canAfford && (cat!=='foundation'||h.fCount<MAX_R);
+      const isTapSel = tapSelected && tapSelected.cat===cat && tapSelected.opt.id===opt.id;
       const costLabel = unitCost===0 ? '<span class="mc-pill" style="background:rgba(107,203,119,0.15);color:var(--safe)">FREE</span>' :
                         unitCost < opt.cost ? `<span class="mc-pill" style="background:rgba(255,209,102,0.15);color:var(--warn)">🔧🪙${unitCost}</span>` :
                         `<span class="mc-pill" style="background:rgba(232,168,56,0.15);color:var(--amber)">🪙${unitCost}</span>`;
-      const card = document.createElement('div'); card.className='mcard';
+      const card = document.createElement('div'); card.className='mcard'+(isTapSel?' tap-selected':'');
       card.style.background = isSel ? opt.col : 'rgba(255,255,255,0.025)';
       card.style.borderColor = isSel ? opt.border : isIncompat ? 'rgba(239,71,111,0.3)' : 'var(--border)';
-      card.style.opacity = isIncompat||(!canAdd&&!isSel) ? '0.38' : '1';
-      card.style.cursor = canAdd||isSel ? 'grab' : 'not-allowed';
-      card.innerHTML=`<div class="mc-emoji">${opt.emoji}</div><div class="mc-name">${opt.name}</div><div class="mc-stats">${costLabel}</div>${isIncompat?'<span class="mc-badge" style="color:var(--danger)">🚫</span>':isSel?'<span class="mc-badge" style="color:var(--safe)">✓</span>':''}`;
-      if (canAdd||isSel) {
-        card.draggable=true;
-        card.addEventListener('dragstart',e=>{dragging={cat,optId:opt.id};e.dataTransfer.setData('text/plain','');});
-        card.addEventListener('dragend',()=>{dragging=null;});
-        card.addEventListener('click',()=>placeBlock(p,cat,opt));
-      } else if (isIncompat) { card.addEventListener('click',()=>toast('🚫 '+ic)); }
+      card.style.opacity = isIncompat||(!canUse&&!isSel) ? '0.38' : '1';
+      card.style.cursor = canUse||isSel ? 'pointer' : 'not-allowed';
+      card.innerHTML=`<div class="mc-emoji">${opt.emoji}</div><div class="mc-name">${opt.name}</div><div class="mc-stats">${costLabel}</div>${isIncompat?'<span class="mc-badge" style="color:var(--danger)">🚫</span>':isSel?'<span class="mc-badge" style="color:var(--safe)">✓</span>':canUse?'<span class="mc-badge" style="color:var(--amber);font-size:9px">tap</span>':''}`;
+
+      if (canUse||isSel) {
+        // Desktop drag (HTML5)
+        card.draggable = true;
+        card.addEventListener('dragstart',e=>{ dragging={cat,optId:opt.id}; e.dataTransfer.setData('text/plain',''); });
+        card.addEventListener('dragend',()=>{ dragging=null; });
+
+        // Tap / click: first tap selects, second tap or drop-zone tap places
+        card.addEventListener('click', ()=>{
+          if (isIncompat) { toast('🚫 '+ic); return; }
+          if (tapSelected && tapSelected.cat===cat && tapSelected.opt.id===opt.id) {
+            // Double-tap same card = place directly
+            placeBlock(p,cat,opt);
+            tapSelected=null;
+          } else {
+            tapSelected = {cat, opt};
+            // Show "tap a drop zone" hint
+            toast(`${opt.emoji} ${opt.name} selected — tap ✚ to place`);
+          }
+          updateGameUI();
+        });
+      } else if (isIncompat) {
+        card.addEventListener('click',()=>toast('🚫 '+ic));
+      }
       mc.appendChild(card);
     });
-    // Drop zone
-    const dzw=document.createElement('div');dzw.className='drop-zone-row';
-    const dz=document.createElement('div');dz.className='drop-zone';
-    dz.textContent=cat==='foundation'?'⬅ Drop to add room →':'⬅ Drop to place →';
-    dz.addEventListener('dragover',e=>{e.preventDefault();dz.classList.add('active-dz');});
-    dz.addEventListener('dragleave',()=>dz.classList.remove('active-dz'));
-    dz.addEventListener('drop',e=>{e.preventDefault();dz.classList.remove('active-dz');
-      if(dragging&&dragging.cat===cat){const o=data.opts.find(x=>x.id===dragging.optId);if(o)placeBlock(p,cat,o);}});
+
+    // Drop zone — accepts both HTML5 drop and tap-selected card
+    const dzw = document.createElement('div'); dzw.className='drop-zone-row';
+    const dz  = document.createElement('div'); dz.className='drop-zone';
+    const isTapTarget = tapSelected && tapSelected.cat===cat;
+    dz.textContent = isTapTarget ? `✚ Tap to place ${tapSelected.opt.name}` :
+                     cat==='foundation' ? '⬅ Drag or tap-select to add room →' : '⬅ Drag or tap-select to place →';
+    if (isTapTarget) dz.style.borderColor='var(--amber)';
+
+    // HTML5 drag-and-drop
+    dz.addEventListener('dragover', e=>{ e.preventDefault(); dz.classList.add('active-dz'); });
+    dz.addEventListener('dragleave', ()=>dz.classList.remove('active-dz'));
+    dz.addEventListener('drop', e=>{
+      e.preventDefault(); dz.classList.remove('active-dz');
+      if(dragging && dragging.cat===cat){
+        const o=data.opts.find(x=>x.id===dragging.optId);
+        if(o) placeBlock(p,cat,o);
+      }
+    });
+
+    // Tap on drop zone to place selected card
+    dz.addEventListener('click', ()=>{
+      if (tapSelected && tapSelected.cat===cat) {
+        placeBlock(p, cat, tapSelected.opt);
+        tapSelected=null;
+        updateGameUI();
+      } else if (tapSelected && tapSelected.cat!==cat) {
+        toast(`Select a ${MATS[cat].label.toLowerCase()} card first`);
+      }
+    });
+
     dzw.appendChild(dz);
     sec.appendChild(dzw);
   });
@@ -1550,14 +1711,36 @@ function renderBuildPhase(container, p) {
                3:'This is the last round. What trade-offs did you make across all three seasons?'};
   addDiscuss(container, qMap[G.round]||'');
 
+  // ── Flood safety warning ──────────────────────────────────────
+  if (isComplete && !safetyOk) {
+    const warn = document.createElement('div');
+    warn.style.cssText = 'background:rgba(239,71,111,0.09);border:1.5px solid rgba(239,71,111,0.35);border-radius:11px;padding:11px 13px;margin-bottom:8px';
+    warn.innerHTML = `
+      <div style="font-size:11px;font-weight:800;color:var(--danger);margin-bottom:5px">⚠️ Flood Safety Rule — Cannot Proceed</div>
+      <div style="font-size:12px;color:rgba(243,237,213,0.75);line-height:1.6">
+        <strong>At least one wall must be above the flood line.</strong><br>
+        This round's flood rises to <strong style="color:var(--river)">${lvlFloodH.toFixed(1)} m</strong>.
+        Your walls top out at <strong>${(FH+WH).toFixed(1)} m</strong> — fully submerged.
+        You must <strong>stack your house</strong> to lift a floor above water, or the structure provides no liveable refuge during a flood.
+      </div>
+      <div style="font-size:11px;color:rgba(243,237,213,0.45);margin-top:7px;line-height:1.5">
+        💡 Switch to <em>Stacked</em> layout and add a second floor — the upper storey will be above the flood line.
+        This reflects real flood-resilient design: keeping at least one habitable space dry.
+      </div>`;
+    container.appendChild(warn);
+  }
+
+  const readyToGo = isComplete && safetyOk;
   const btn = document.createElement('button');
-  btn.className = 'action-btn '+(isComplete?'primary':'disabled');
-  btn.textContent = isComplete ? '✅ Confirm Build — Face the Flood' :
+  btn.className = 'action-btn '+(readyToGo ? 'primary' : 'disabled');
+  btn.textContent = readyToGo ? '✅ Confirm Build — Face the Flood' :
     !h.fCount ? 'Drop a foundation first' :
-    h.wCount<h.fCount ? `Add ${h.fCount-h.wCount} more wall block(s)` :
-    h.rCount<rTarget ? `Add ${rTarget-h.rCount} more roof block(s)` : 'Complete your house';
+    h.wCount < h.fCount ? `Add ${h.fCount-h.wCount} more wall block(s)` :
+    h.rCount < rTarget  ? `Add ${rTarget-h.rCount} more roof block(s)` :
+    !safetyOk           ? '⚠️ Stack the house — all walls are below flood level' :
+                          'Complete your house';
   btn.onclick = () => {
-    if (!isComplete) return;
+    if (!readyToGo) return;
     p.savedCoins = Math.max(0, p.coins - calcHouseSpend(p));
     G.phase = 'flood';
     startFlood();
